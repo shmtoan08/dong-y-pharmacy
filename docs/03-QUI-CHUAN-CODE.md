@@ -1,7 +1,7 @@
 # QUI CHUẨN CODE — Web App Phòng Thuốc Đông Y
 
-> Phiên bản: 1.1 — Ngày: 2026-10-06
-> Cập nhật sau review của ChatGPT (vai trò tech lead).
+> Phiên bản: 1.2 — Ngày: 2026-10-06
+> Cập nhật: rule màu Tailwind (Tony), giữ nguyên các phần khác từ v1.1.
 > Stack: Next.js 14+ (App Router) · TypeScript · Tailwind CSS · Shadcn/ui · Supabase
 
 ---
@@ -57,6 +57,12 @@
 ### 2.6. Xử lý số thập phân & tiền
 - `NUMERIC` từ DB trả về **string** → dùng `decimal.js`, **cấm `Number()` trực tiếp**.
 - Quy tắc làm tròn: làm tròn ở **DB** (trong SP), `half-up`, 2 chữ số cho tiền, 2 chữ số cho gram. Thống nhất toàn hệ thống.
+
+### 2.7. Màu sắc — chỉ dùng Tailwind palette (Tony 2026-10-06)
+- **Cấm mã màu cứng** (`#1b4d3e`, `rgb()`, `oklch()`) trong code và CSS.
+- Chỉ dùng class màu có sẵn của Tailwind (`emerald-800`, `amber-500`, `stone-100`...).
+- Bảng màu dự án: primary `emerald` (xanh thảo mộc), accent `amber` (vàng hổ phách), neutral `stone` (tông ấm).
+- Muốn màu custom → bàn với Tony trước, không tự thêm.
 
 ### 2.7. Validation
 - Mọi form: **React Hook Form + Zod**.
