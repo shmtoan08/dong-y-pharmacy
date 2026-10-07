@@ -436,3 +436,79 @@ export async function getTemplateItemsForPrescription(
   );
   return rows;
 }
+
+/**
+ * Tái khám: tạo lượt khám mới + đơn nháp copy từ đơn cũ (1 click).
+ * Dùng cho bệnh nhân mãn tính bốc lại thang thuốc cũ có gia giảm.
+ * Trả về ID đơn mới để chuyển tới trang sửa.
+ */
+export async function reprisePrescription(sourceId: string): Promise<{ newId?: string; error?: string }> {
+  const user = await requireRole("admin", "practitioner");
+
+  const src = await getPrescription(sourceId);
+  if (!src) return { error: "Không tìm thấy đơn thuốc" };
+
+  try {
+    const newId = await withTransaction(async (tx) => {
+      // 1. Lượt khám mới (tái khám)
+      const { rows: vRows } = await tx.query<{ id: string }>(
+        `INSERT INTO visits (patient_id, practitioner_id, final_diagnosis, doctor_notes)
+         VALUES ($1, $2, $3, $4)
+         RETURNING id`,
+        [
+          src.patient_id,
+          user.id,
+          src.doctor_notes || null,
+          `Tái khám — bốc lại đơn ${src.prescription_code}`,
+        ],
+      );
+      const visitId = vRows[0].id;
+
+      // 2. Đơn nháp mới
+      const code = await nextPrescriptionCode();
+      const { rows: pRows } = await tx.query<{ id: string }>(
+        `INSERT INTO prescriptions
+           (prescription_code, visit_id, practitioner_id, status, num_of_packs, usage_instruction, doctor_notes)
+         VALUES ($1, $2, $3, 'draft', $4, $5, $6)
+         RETURNING id`,
+        [
+          code,
+          visitId,
+          user.id,
+          src.num_of_packs,
+          src.usage_instruction,
+          src.doctor_notes,
+        ],
+      );
+      const newPresId = pRows[0].id;
+
+      // 3. Copy vị thuốc
+      for (const it of src.items) {
+        await tx.query(
+          `INSERT INTO prescription_items (prescription_id, herb_name, herb_name_key, weight_per_pack, note)
+           VALUES ($1, $2, $3, $4, $5)`,
+          [
+            newPresId,
+            it.herb_name,
+            normalizeHerbKey(it.herb_name as string),
+            it.weight_per_pack,
+            it.note ?? null,
+          ],
+        );
+      }
+      return newPresId;
+    });
+
+    await audit({
+      userId: user.id,
+      action: "REPRISE_PRESCRIPTION",
+      tableName: "prescriptions",
+      rowId: newId,
+      newValue: { source_id: sourceId },
+    });
+    return { newId };
+  } catch (e) {
+    console.error("[reprisePrescription] failed:", e);
+    return { error: "Không tạo được đơn bốc lại, vui lòng thử lại" };
+  }
+}

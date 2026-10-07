@@ -18,6 +18,13 @@ export default async function NewVisitPage({
   ]);
   if (!patient) notFound();
 
+  const { db } = await import("@/lib/db");
+  const vcRes = await db.query<{ cnt: string }>(
+    `SELECT COUNT(*) AS cnt FROM visits WHERE patient_id = $1`,
+    [patientId],
+  );
+  const visitCount = Number(vcRes.rows[0]?.cnt ?? 0);
+
   return (
     <div className="space-y-4">
       <BackButton href={`/patients/${patientId}`} />
@@ -28,8 +35,8 @@ export default async function NewVisitPage({
         </p>
       </div>
       <VisitForm
-        patientId={patient.id}
-        patientName={patient.full_name}
+        patient={patient}
+        visitCount={visitCount}
         patterns={patterns}
       />
     </div>

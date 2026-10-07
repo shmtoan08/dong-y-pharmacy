@@ -1,4 +1,5 @@
 import { BackButton } from "@/components/shared/BackButton";
+import { VisitTimelineItem } from "./VisitTimelineItem";
 import { SimpleTabs } from "@/components/shared/SimpleTabs";
 import { getPatient } from "@/features/patients/actions";
 import { getVisitsByPatient } from "@/features/visits/actions";
@@ -8,7 +9,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Stethoscope, FileText, Pencil } from "lucide-react";
+import { Plus, Stethoscope, FileText, Pencil, Printer } from "lucide-react";
 import { STATUS_LABEL, STATUS_STYLE } from "@/features/prescriptions/constants";
 import { notFound } from "next/navigation";
 
@@ -64,34 +65,14 @@ export default async function PatientDetailPage({
         ) : (
           <div className="relative space-y-4 before:absolute before:bottom-2 before:left-[7px] before:top-2 before:w-px before:bg-stone-200">
             {prescriptionsByVisit.map(({ visit, prescriptions }) => (
-              <div key={visit.id} className="relative pl-8">
-                <span className="absolute left-0 top-1 flex h-4 w-4 items-center justify-center rounded-full bg-emerald-800">
-                  <Stethoscope className="h-2.5 w-2.5 text-white" />
-                </span>
-                <div className="rounded-lg border border-stone-200 p-3">
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <p className="text-sm font-semibold">
-                      {new Date(visit.visited_at).toLocaleDateString("vi-VN", {
-                        day: "2-digit", month: "2-digit", year: "numeric",
-                        hour: "2-digit", minute: "2-digit",
-                      })}
-                    </p>
-                    <span className="text-xs text-stone-500">{visit.practitioner_name}</span>
-                  </div>
-                  {visit.final_diagnosis && (
-                    <p className="mt-1 text-sm text-stone-700">
-                      <span className="font-medium">Chẩn đoán:</span> {visit.final_diagnosis}
-                    </p>
-                  )}
-                  {canEdit && prescriptions.length === 0 && (
-                    <Link href={`/prescriptions/new?visitId=${visit.id}`}>
-                      <Button variant="link" size="sm" className="h-auto p-0 text-emerald-700">
-                        + Kê đơn cho lượt khám này
-                      </Button>
-                    </Link>
-                  )}
-                </div>
-              </div>
+              <VisitTimelineItem
+                key={visit.id}
+                visitId={visit.id}
+                visitedAt={visit.visited_at}
+                practitionerName={visit.practitioner_name}
+                diagnosis={visit.final_diagnosis}
+                canPrescribe={canEdit && prescriptions.length === 0}
+              />
             ))}
           </div>
         )}
@@ -147,6 +128,11 @@ export default async function PatientDetailPage({
           <p className="text-sm text-stone-500">{patient.patient_code}</p>
         </div>
         <div className="flex gap-2">
+          <Link href={`/patients/${id}/print`}>
+            <Button variant="outline" size="sm">
+              <Printer className="mr-1 h-4 w-4" /> In bệnh án
+            </Button>
+          </Link>
           {canEdit && (
             <>
               <Link href={`/patients/${id}/edit`}>

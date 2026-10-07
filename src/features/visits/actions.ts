@@ -114,6 +114,11 @@ export async function createVisit(
     newValue: { patient_id: d.patient_id },
   });
 
+  // Luu & Ke don ngay -> chuyen sang trang ke don cho luot kham vua tao
+  const next = formData.get("next_action");
+  if (next === "prescribe") {
+    redirect(`/prescriptions/new?visitId=${visitId}`);
+  }
   redirect(`/patients/${d.patient_id}`);
 }
 
@@ -136,4 +141,46 @@ export async function getVisitsByPatient(patientId: string): Promise<VisitRow[]>
     [patientId],
   );
   return rows;
+}
+
+export interface VisitDetail {
+  id: string;
+  visited_at: string;
+  inspection_notes: string | null;
+  auscultation_notes: string | null;
+  inquiry_notes: string | null;
+  palpation_notes: string | null;
+  final_diagnosis: string | null;
+  doctor_notes: string | null;
+  practitioner_name: string;
+  pulses: {
+    hand: string;
+    position: string;
+    pattern_name: string | null;
+    custom_note: string | null;
+  }[];
+}
+
+/** Chi tiết đầy đủ 1 lượt khám (Tứ chẩn + Mạch) */
+export async function getVisitDetail(visitId: string): Promise<VisitDetail | null> {
+  await requireRole("admin", "practitioner", "dispenser");
+  const { rows } = await db.query(
+    `SELECT v.id, v.visited_at, v.inspection_notes, v.auscultation_notes,
+            v.inquiry_notes, v.palpation_notes, v.final_diagnosis, v.doctor_notes,
+            u.full_name AS practitioner_name
+     FROM visits v
+     JOIN users u ON u.id = v.practitioner_id
+     WHERE v.id = $1`,
+    [visitId],
+  );
+  if (rows.length === 0) return null;
+  const pulses = await db.query(
+    `SELECT vp.hand, vp.position, pp.name_viet AS pattern_name, vp.custom_note
+     FROM visit_pulses vp
+     LEFT JOIN pulse_patterns pp ON pp.id = vp.pulse_pattern_id
+     WHERE vp.visit_id = $1
+     ORDER BY vp.hand, vp.position`,
+    [visitId],
+  );
+  return { ...rows[0], pulses: pulses.rows } as VisitDetail;
 }
