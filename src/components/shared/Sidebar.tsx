@@ -10,6 +10,17 @@ import {
   Stethoscope,
   UserCog,
   Leaf,
+  CalendarClock,
+  FileText,
+  Package,
+  ClipboardCheck,
+  Receipt,
+  Wallet,
+  TrendingUp,
+  BarChart3,
+  Activity,
+  ShieldCheck,
+  Settings,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
@@ -27,12 +38,29 @@ interface MenuItem {
 }
 
 const MENU: MenuItem[] = [
+  // Tổng quan
   { href: "/", label: "Bảng điều khiển", icon: Home, roles: ["admin", "practitioner", "dispenser"], section: "Tổng quan" },
-  { href: "/visits", label: "Khám bệnh", icon: Stethoscope, roles: ["admin", "practitioner"], section: "Nghiệp vụ y khoa" },
-  { href: "/patients", label: "Bệnh nhân", icon: Users, roles: ["admin", "practitioner", "dispenser"], section: "Nghiệp vụ y khoa" },
-  { href: "/formulas", label: "Bài thuốc", icon: BookOpen, roles: ["admin", "practitioner", "dispenser"], section: "Nghiệp vụ y khoa" },
-  { href: "/herbs", label: "Vị thuốc", icon: Leaf, roles: ["admin", "practitioner", "dispenser"], section: "Dược liệu & Kho" },
-  { href: "/admin/staff", label: "Nhân viên", icon: UserCog, roles: ["admin"], section: "Hệ thống" },
+  // Khám chữa bệnh
+  { href: "/appointments", label: "Tiếp đón & Lịch hẹn", icon: CalendarClock, roles: ["admin", "practitioner"], section: "Khám chữa bệnh" },
+  { href: "/visits", label: "Khám bệnh & Bệnh án", icon: Stethoscope, roles: ["admin", "practitioner"], section: "Khám chữa bệnh" },
+  { href: "/patients", label: "Hồ sơ bệnh nhân", icon: Users, roles: ["admin", "practitioner", "dispenser"], section: "Khám chữa bệnh" },
+  { href: "/prescriptions", label: "Kê đơn & Bốc thuốc", icon: FileText, roles: ["admin", "practitioner", "dispenser"], section: "Khám chữa bệnh" },
+  // Kho dược liệu
+  { href: "/herbs", label: "Danh mục vị thuốc", icon: Leaf, roles: ["admin", "practitioner", "dispenser"], section: "Kho dược liệu" },
+  { href: "/formulas", label: "Bài thuốc mẫu", icon: BookOpen, roles: ["admin", "practitioner", "dispenser"], section: "Kho dược liệu" },
+  { href: "/inventory", label: "Nhập - Xuất kho", icon: Package, roles: ["admin", "practitioner", "dispenser"], section: "Kho dược liệu" },
+  { href: "/inventory/check", label: "Kiểm kê & Cảnh báo", icon: ClipboardCheck, roles: ["admin", "practitioner", "dispenser"], section: "Kho dược liệu" },
+  // Tài chính
+  { href: "/finance/invoices", label: "Hóa đơn & Thanh toán", icon: Receipt, roles: ["admin"], section: "Tài chính"  },
+  { href: "/finance/ledger", label: "Sổ quỹ & Công nợ", icon: Wallet, roles: ["admin"], section: "Tài chính" },
+  // Báo cáo
+  { href: "/reports/revenue", label: "Doanh thu & Lợi nhuận", icon: TrendingUp, roles: ["admin"], section: "Báo cáo" },
+  { href: "/reports/herbs", label: "Tiêu hao dược liệu", icon: BarChart3, roles: ["admin"], section: "Báo cáo" },
+  { href: "/reports/visits", label: "Lượt khám & Bệnh nhân", icon: Activity, roles: ["admin"], section: "Báo cáo" },
+  // Hệ thống
+  { href: "/admin/staff", label: "Nhân viên & Bác sĩ", icon: UserCog, roles: ["admin"], section: "Hệ thống" },
+  { href: "/admin/roles", label: "Phân quyền", icon: ShieldCheck, roles: ["admin"], section: "Hệ thống" },
+  { href: "/admin/settings", label: "Cài đặt chung", icon: Settings, roles: ["admin"], section: "Hệ thống" },
 ];
 
 export function Sidebar({
