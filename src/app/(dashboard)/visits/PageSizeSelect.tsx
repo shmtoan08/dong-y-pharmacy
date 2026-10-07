@@ -6,9 +6,11 @@ import { useRouter, useSearchParams } from "next/navigation";
 export function PageSizeSelect({
   value,
   options,
+  basePath = "/visits",
 }: {
   value: number;
   options: number[];
+  basePath?: string;
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -17,7 +19,7 @@ export function PageSizeSelect({
     const params = new URLSearchParams(searchParams.toString());
     params.set("size", size);
     params.set("page", "1");
-    router.push(`/visits?${params.toString()}`);
+    router.push(`${basePath}?${params.toString()}`);
   };
 
   return (
