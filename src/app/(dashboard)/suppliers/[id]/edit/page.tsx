@@ -14,7 +14,7 @@ export default async function EditSupplierPage({
 
   return (
     <div className="space-y-4">
-      <BackButton href="/suppliers" />
+      <BackButton href={"/suppliers/" + id} />
       <div>
         <h1 className="text-xl font-bold text-stone-900 md:text-2xl">
           Sửa nhà cung cấp
