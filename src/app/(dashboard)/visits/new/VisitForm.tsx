@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { AlertTriangle, User } from "lucide-react";
 import { PulseInputForm } from "@/components/visits/PulseInputForm";
+import { BatCuongPicker } from "./BatCuongPicker";
 import {
   createVisit,
   type PulsePattern,
@@ -97,6 +98,7 @@ export function VisitForm({
               <Label htmlFor="final_diagnosis">Chẩn đoán cuối</Label>
               <Textarea id="final_diagnosis" name="final_diagnosis" rows={2} placeholder="VD: Can uất tỳ hư, đàm thấp..." />
             </div>
+            <BatCuongPicker />
             <div className="space-y-2">
               <Label htmlFor="doctor_notes">Ghi chú của thầy thuốc</Label>
               <Textarea id="doctor_notes" name="doctor_notes" rows={2} />

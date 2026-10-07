@@ -131,6 +131,11 @@ export function VisitTimelineItem({
                     </div>
                   </div>
                 )}
+                {detail.bat_cuong && (
+                  <p className="text-sm text-stone-600">
+                    <span className="font-medium">Bát cương:</span> {detail.bat_cuong}
+                  </p>
+                )}
                 {detail.doctor_notes && (
                   <p className="text-sm text-stone-600">
                     <span className="font-medium">Ghi chú:</span> {detail.doctor_notes}

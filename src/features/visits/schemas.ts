@@ -17,6 +17,7 @@ export const visitSchema = z.object({
   inquiry_notes: z.string().max(2000).optional(), // vấn
   palpation_notes: z.string().max(2000).optional(), // thiết
   final_diagnosis: z.string().max(2000).optional(),
+  bat_cuong: z.string().max(100).optional(), // VD: "Biểu,Hàn,Hư,Âm"
   doctor_notes: z.string().max(2000).optional(),
   pulses: z.array(pulseEntrySchema).max(6),
 });

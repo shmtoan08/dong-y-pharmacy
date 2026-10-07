@@ -59,6 +59,7 @@ export async function createVisit(
     inquiry_notes: formData.get("inquiry_notes") || undefined,
     palpation_notes: formData.get("palpation_notes") || undefined,
     final_diagnosis: formData.get("final_diagnosis") || undefined,
+    bat_cuong: formData.get("bat_cuong") || undefined,
     doctor_notes: formData.get("doctor_notes") || undefined,
     pulses: pulses ?? [],
   });
@@ -77,8 +78,8 @@ export async function createVisit(
       const { rows } = await tx.query<{ id: string }>(
         `INSERT INTO visits
            (patient_id, practitioner_id, inspection_notes, auscultation_notes,
-            inquiry_notes, palpation_notes, final_diagnosis, doctor_notes)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+            inquiry_notes, palpation_notes, final_diagnosis, bat_cuong, doctor_notes)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
          RETURNING id`,
         [
           d.patient_id,
@@ -88,6 +89,7 @@ export async function createVisit(
           d.inquiry_notes?.trim() || null,
           d.palpation_notes?.trim() || null,
           d.final_diagnosis?.trim() || null,
+          d.bat_cuong?.trim() || null,
           d.doctor_notes?.trim() || null,
         ],
       );
@@ -151,6 +153,7 @@ export interface VisitDetail {
   inquiry_notes: string | null;
   palpation_notes: string | null;
   final_diagnosis: string | null;
+  bat_cuong: string | null;
   doctor_notes: string | null;
   practitioner_name: string;
   pulses: {
@@ -166,7 +169,7 @@ export async function getVisitDetail(visitId: string): Promise<VisitDetail | nul
   await requireRole("admin", "practitioner", "dispenser");
   const { rows } = await db.query(
     `SELECT v.id, v.visited_at, v.inspection_notes, v.auscultation_notes,
-            v.inquiry_notes, v.palpation_notes, v.final_diagnosis, v.doctor_notes,
+            v.inquiry_notes, v.palpation_notes, v.final_diagnosis, v.bat_cuong, v.doctor_notes,
             u.full_name AS practitioner_name
      FROM visits v
      JOIN users u ON u.id = v.practitioner_id

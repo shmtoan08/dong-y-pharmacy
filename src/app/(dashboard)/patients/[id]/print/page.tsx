@@ -94,6 +94,7 @@ export default async function PrintPatientPage({
                 </p>
               )}
               {d.final_diagnosis && <p className="mt-1"><span className="font-medium">Chẩn đoán:</span> {d.final_diagnosis}</p>}
+              {d.bat_cuong && <p><span className="font-medium">Bát cương:</span> {d.bat_cuong}</p>}
               {prs.length > 0 && (
                 <p className="mt-1"><span className="font-medium">Đơn thuốc:</span> {prs.map((pr) => `${pr.prescription_code} (${pr.num_of_packs} thang)`).join(", ")}</p>
               )}
