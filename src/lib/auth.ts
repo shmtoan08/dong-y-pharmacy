@@ -74,6 +74,13 @@ export async function revokeAllSessions(userId: string): Promise<void> {
 
 /** Lấy user từ session cookie, null nếu không hợp lệ/hết hạn/bị khóa. */
 export async function getSessionUser(): Promise<SessionUser | null> {
+  // Tạm tắt đăng nhập: trả về admin đầu tiên trong DB (để audit log có user_id thật)
+  if (process.env.DISABLE_AUTH === "true") {
+    const { rows } = await db.query(
+      `SELECT id, email, full_name, role FROM users WHERE role = 'admin' AND is_active = true LIMIT 1`,
+    );
+    if (rows.length > 0) return rows[0] as SessionUser;
+  }
   const jar = await cookies();
   const token = jar.get(SESSION_COOKIE)?.value;
   if (!token) return null;

@@ -7,6 +7,9 @@ const SESSION_COOKIE = "dongy_session";
 // Middleware chỉ check sự tồn tại của cookie (nhanh, không query DB).
 // Validate đầy đủ (hết hạn, bị khóa) làm ở root layout.
 export function middleware(req: NextRequest) {
+  // Tạm tắt đăng nhập để test layout: DISABLE_AUTH=true → ai cũng vào được
+  if (process.env.DISABLE_AUTH === "true") return NextResponse.next();
+
   const { pathname } = req.nextUrl;
   const hasSession = req.cookies.has(SESSION_COOKIE);
 
