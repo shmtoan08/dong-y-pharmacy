@@ -91,7 +91,6 @@ export async function createHerb(_prev: ActionState, formData: FormData): Promis
     vi_tri_hoc_tu: formData.get("vi_tri_hoc_tu") || undefined,
     base_unit: formData.get("base_unit") || "gram",
     price_per_unit: formData.get("price_per_unit") || undefined,
-    stock_quantity: formData.get("stock_quantity") || undefined,
     min_stock_quantity: formData.get("min_stock_quantity") || undefined,
     is_valuable: formData.get("is_valuable") === "on",
   });
@@ -119,13 +118,13 @@ export async function createHerb(_prev: ActionState, formData: FormData): Promis
     `INSERT INTO herbs (code, name_common, canonical_key, name_han_viet, name_science,
                         used_part, property_tinh, property_vi, quy_kinh, cong_nang,
                         kieng_ky, vi_tri_hoc_tu,
-                        base_unit, price_per_unit, stock_quantity, min_stock_quantity, is_valuable)
-     VALUES (next_herb_code(), $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
+                        base_unit, price_per_unit, min_stock_quantity, is_valuable)
+     VALUES (next_herb_code(), $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
      RETURNING id, code`,
     [v.name_common, key, v.name_han_viet ?? null, v.name_science ?? null,
      v.used_part ?? null, v.property_tinh ?? null, v.property_vi ?? null,
      quyKinh, v.cong_nang ?? null, v.kieng_ky ?? null, v.vi_tri_hoc_tu ?? null, v.base_unit,
-     v.price_per_unit ?? null, v.stock_quantity ?? 0, v.min_stock_quantity ?? 0,
+     v.price_per_unit ?? null, v.min_stock_quantity ?? 0,
      v.is_valuable],
   );
   await audit({ userId: user.id, action: "herb.create", tableName: "herb", rowId: rows[0].id, newValue: { code: rows[0].code } });
@@ -154,7 +153,6 @@ export async function updateHerb(
     vi_tri_hoc_tu: formData.get("vi_tri_hoc_tu") || undefined,
     base_unit: formData.get("base_unit") || "gram",
     price_per_unit: formData.get("price_per_unit") || undefined,
-    stock_quantity: formData.get("stock_quantity") || undefined,
     min_stock_quantity: formData.get("min_stock_quantity") || undefined,
     is_valuable: formData.get("is_valuable") === "on",
   });
@@ -184,13 +182,13 @@ export async function updateHerb(
                       name_science = $4, used_part = $5, property_tinh = $6,
                       property_vi = $7, quy_kinh = $8, cong_nang = $9,
                       kieng_ky = $10, vi_tri_hoc_tu = $11,
-                      base_unit = $12, price_per_unit = $13, stock_quantity = $14,
-                      min_stock_quantity = $15, is_valuable = $16, updated_at = NOW()
-     WHERE id = $17`,
+                      base_unit = $12, price_per_unit = $13,
+                      min_stock_quantity = $14, is_valuable = $15, updated_at = NOW()
+     WHERE id = $16`,
     [v.name_common, key, v.name_han_viet ?? null, v.name_science ?? null,
      v.used_part ?? null, v.property_tinh ?? null, v.property_vi ?? null,
      quyKinh, v.cong_nang ?? null, v.kieng_ky ?? null, v.vi_tri_hoc_tu ?? null, v.base_unit,
-     v.price_per_unit ?? null, v.stock_quantity ?? 0, v.min_stock_quantity ?? 0,
+     v.price_per_unit ?? null, v.min_stock_quantity ?? 0,
      v.is_valuable, id],
   );
   await audit({ userId: user.id, action: "herb.update", tableName: "herb", rowId: id, newValue: {} });

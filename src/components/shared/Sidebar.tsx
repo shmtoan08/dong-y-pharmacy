@@ -14,6 +14,7 @@ import {
   FileText,
   Package,
   ClipboardCheck,
+  Truck,
   Receipt,
   Wallet,
   TrendingUp,
@@ -48,8 +49,9 @@ const MENU: MenuItem[] = [
   // Kho dược liệu
   { href: "/herbs", label: "Danh mục vị thuốc", icon: Leaf, roles: ["admin", "practitioner", "dispenser"], section: "Kho dược liệu" },
   { href: "/formulas", label: "Bài thuốc mẫu", icon: BookOpen, roles: ["admin", "practitioner", "dispenser"], section: "Kho dược liệu" },
-  { href: "/inventory", label: "Nhập - Xuất kho", icon: Package, roles: ["admin", "practitioner", "dispenser"], section: "Kho dược liệu" },
-  { href: "/inventory/check", label: "Kiểm kê & Cảnh báo", icon: ClipboardCheck, roles: ["admin", "practitioner", "dispenser"], section: "Kho dược liệu" },
+  { href: "/suppliers", label: "Nhà cung cấp", icon: Truck, roles: ["admin", "practitioner", "dispenser"], section: "Kho dược liệu" },
+  { href: "/stock-receipts", label: "Phiếu nhập kho", icon: Package, roles: ["admin", "practitioner", "dispenser"], section: "Kho dược liệu" },
+  { href: "/stock-lots", label: "Quản lý lô hàng", icon: ClipboardCheck, roles: ["admin", "practitioner", "dispenser"], section: "Kho dược liệu" },
   // Tài chính
   { href: "/finance/invoices", label: "Hóa đơn & Thanh toán", icon: Receipt, roles: ["admin"], section: "Tài chính"  },
   { href: "/finance/ledger", label: "Sổ quỹ & Công nợ", icon: Wallet, roles: ["admin"], section: "Tài chính" },

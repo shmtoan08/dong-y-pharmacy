@@ -81,7 +81,6 @@ export function HerbForm({ action, initial, submitLabel, allowStay }: HerbFormPr
       vi_tri_hoc_tu: "",
       base_unit: "gram",
       price_per_unit: undefined,
-      stock_quantity: 0,
       min_stock_quantity: 0,
       is_valuable: false,
       ...initial,
@@ -122,7 +121,7 @@ export function HerbForm({ action, initial, submitLabel, allowStay }: HerbFormPr
         property_tinh: "", property_vi: "", quy_kinh: "", cong_nang: "",
         kieng_ky: "", vi_tri_hoc_tu: "",
         base_unit: "gram", price_per_unit: undefined,
-        stock_quantity: 0, min_stock_quantity: 0, is_valuable: false,
+        min_stock_quantity: 0, is_valuable: false,
       });
       window.scrollTo({ top: 0, behavior: "smooth" });
     }
@@ -262,11 +261,6 @@ export function HerbForm({ action, initial, submitLabel, allowStay }: HerbFormPr
                   <Label htmlFor="price_per_unit">Đơn giá (đ/ĐVT)</Label>
                   <Input id="price_per_unit" type="number" min={0} step={1}
                     placeholder="1525" {...register("price_per_unit")} />
-                </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="stock_quantity">Tồn kho ban đầu</Label>
-                  <Input id="stock_quantity" type="number" min={0} step={0.01}
-                    {...register("stock_quantity")} />
                 </div>
                 <div className="space-y-1.5">
                   <Label htmlFor="min_stock_quantity">Ngưỡng sắp hết</Label>

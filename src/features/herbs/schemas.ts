@@ -13,7 +13,6 @@ export const herbSchema = z.object({
   vi_tri_hoc_tu: z.string().max(100).optional(),
   base_unit: z.string().max(20),
   price_per_unit: z.coerce.number().min(0, "Đơn giá không âm").optional(),
-  stock_quantity: z.coerce.number().min(0, "Tồn kho không âm").optional(),
   min_stock_quantity: z.coerce.number().min(0, "Ngưỡng không âm").optional(),
   is_valuable: z.boolean(),
 });
