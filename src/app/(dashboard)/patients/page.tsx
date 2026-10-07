@@ -5,6 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Plus, Eye, Stethoscope, Pencil } from "lucide-react";
 import { PatientFilterToolbar } from "./PatientFilterToolbar";
+import { ExportPatientsButton } from "./ExportPatientsButton";
 import { PageSizeSelect } from "../visits/PageSizeSelect";
 import { Tooltip, TooltipProvider } from "@/components/ui/tooltip";
 
@@ -137,11 +138,14 @@ export default async function PatientsPage({
             </h1>
             <p className="text-sm text-stone-500">{total} hồ sơ</p>
           </div>
-          <Link href="/patients/new">
-            <Button className="bg-emerald-800 hover:bg-emerald-900">
-              <Plus className="mr-1 h-4 w-4" /> Thêm bệnh nhân
-            </Button>
-          </Link>
+          <div className="flex gap-2">
+            <ExportPatientsButton />
+            <Link href="/patients/new">
+              <Button className="bg-emerald-800 hover:bg-emerald-900">
+                <Plus className="mr-1 h-4 w-4" /> Thêm bệnh nhân
+              </Button>
+            </Link>
+          </div>
         </div>
 
         {/* Toolbar lọc tự động */}
