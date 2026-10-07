@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -12,6 +13,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
+import { InfoModal } from "./InfoModal";
 
 type Role = "admin" | "practitioner" | "dispenser";
 
@@ -25,19 +27,26 @@ interface MenuItem {
 
 const MENU: MenuItem[] = [
   { href: "/", label: "Trang chủ", icon: Home, roles: ["admin", "practitioner", "dispenser"] },
-  { href: "/formulas", label: "Bài thuốc", icon: BookOpen, roles: ["admin", "practitioner", "dispenser"], comingSoon: true },
+  { href: "/formulas", label: "Bài thuốc", icon: BookOpen, roles: ["admin", "practitioner", "dispenser"] },
   { href: "/patients", label: "Bệnh nhân", icon: Users, roles: ["admin", "practitioner", "dispenser"], comingSoon: true },
   { href: "/visits", label: "Khám bệnh", icon: Stethoscope, roles: ["admin", "practitioner"], comingSoon: true },
   { href: "/herbs", label: "Vị thuốc", icon: Leaf, roles: ["admin", "practitioner", "dispenser"], comingSoon: true },
   { href: "/admin/staff", label: "Nhân viên", icon: UserCog, roles: ["admin"] },
 ];
 
-export function Sidebar({ role }: { role: Role }) {
+export function Sidebar({
+  role,
+  onNavigate,
+}: {
+  role: Role;
+  onNavigate?: () => void;
+}) {
   const pathname = usePathname();
   const items = MENU.filter((m) => m.roles.includes(role));
+  const [comingSoonLabel, setComingSoonLabel] = useState<string | null>(null);
 
   return (
-    <aside className="flex w-64 shrink-0 flex-col bg-emerald-950 text-emerald-50">
+    <aside className="flex h-full w-64 shrink-0 flex-col bg-emerald-950 text-emerald-50">
       {/* Brand */}
       <div className="flex h-16 items-center gap-3 border-b border-emerald-800/60 px-4">
         <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br from-emerald-600 to-emerald-800 shadow-md">
@@ -72,30 +81,54 @@ export function Sidebar({ role }: { role: Role }) {
             </>
           );
           const cls = cn(
-            "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all",
+            "flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all",
             active
               ? "bg-emerald-800 text-white shadow-md"
               : "text-emerald-100/70 hover:bg-emerald-900 hover:text-white",
-            item.comingSoon && "pointer-events-none opacity-60",
+            item.comingSoon && "opacity-60",
           );
-          return item.comingSoon ? (
-            <span key={item.href} className={cls}>
-              {content}
-            </span>
-          ) : (
-            <Link key={item.href} href={item.href} className={cls}>
+          // Mục "Sắp có": bấm được → hiện modal thông báo (không dùng window.alert)
+          if (item.comingSoon) {
+            return (
+              <button
+                key={item.href}
+                type="button"
+                className={cn(cls, "cursor-pointer text-left")}
+                onClick={() => setComingSoonLabel(item.label)}
+              >
+                {content}
+              </button>
+            );
+          }
+          return (
+            <Link
+              key={item.href}
+              href={item.href}
+              className={cls}
+              onClick={() => onNavigate?.()}
+            >
               {content}
             </Link>
           );
         })}
       </nav>
 
-      {/* Footer */}
-      <div className="border-t border-emerald-800/60 p-4">
+      {/* Footer — padding-bottom cho safe area mobile */}
+      <div className="border-t border-emerald-800/60 p-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
         <p className="text-center text-[11px] text-emerald-300/60">
           Tâm đức • Uy tín • Tận tâm
         </p>
       </div>
+
+      {/* Modal thông báo chức năng đang phát triển */}
+      <InfoModal
+        open={comingSoonLabel !== null}
+        onOpenChange={(open) => {
+          if (!open) setComingSoonLabel(null);
+        }}
+        title={`Chức năng "${comingSoonLabel ?? ""}"`}
+        description="Đang được phát triển, sẽ sớm ra mắt."
+      />
     </aside>
   );
 }

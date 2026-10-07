@@ -1,4 +1,5 @@
 import { requireUser } from "@/lib/auth";
+import Link from "next/link";
 import {
   Card,
   CardContent,
@@ -14,9 +15,10 @@ const MODULES = [
     title: "Bài thuốc",
     description: "Thư viện bài thuốc của phòng thuốc",
     icon: BookOpen,
-    phase: "MVP-1",
+    phase: "",
     accent: "border-t-emerald-600",
     iconBg: "bg-emerald-100 text-emerald-700",
+    href: "/formulas",
   },
   {
     title: "Bệnh nhân",
@@ -45,9 +47,9 @@ export default async function HomePage() {
   return (
     <div className="space-y-6">
       {/* Banner chào mừng */}
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-emerald-900 via-emerald-800 to-emerald-700 p-8 text-white shadow-lg">
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-emerald-900 via-emerald-800 to-emerald-700 p-5 text-white shadow-lg md:p-8">
         <div className="relative z-10">
-          <h1 className="text-2xl font-bold">
+          <h1 className="text-xl font-bold md:text-2xl">
             {greeting}, {user.full_name}
           </h1>
           <p className="mt-1 text-emerald-100/90">
@@ -62,10 +64,10 @@ export default async function HomePage() {
       <div className="grid gap-5 md:grid-cols-3">
         {MODULES.map((m) => {
           const Icon = m.icon;
-          return (
+          const card = (
             <Card
               key={m.title}
-              className={`group border-t-4 ${m.accent} shadow-sm transition-all hover:-translate-y-1 hover:shadow-md`}
+              className={`group h-full border-t-4 ${m.accent} shadow-sm transition-all hover:-translate-y-1 hover:shadow-md ${m.href ? "cursor-pointer" : ""}`}
             >
               <CardHeader className="flex flex-row items-center gap-4 space-y-0">
                 <span
@@ -79,12 +81,23 @@ export default async function HomePage() {
                 </div>
               </CardHeader>
               <CardContent className="flex items-center justify-between">
-                <Badge variant="secondary" className="bg-stone-100 text-stone-600">
-                  {m.phase} — Đang xây dựng
-                </Badge>
+                {m.phase ? (
+                  <Badge variant="secondary" className="bg-stone-100 text-stone-600">
+                    {m.phase} — Đang xây dựng
+                  </Badge>
+                ) : (
+                  <Badge className="bg-emerald-800 hover:bg-emerald-900">Xem danh sách</Badge>
+                )}
                 <ArrowRight className="h-4 w-4 text-stone-400 opacity-0 transition-opacity group-hover:opacity-100" />
               </CardContent>
             </Card>
+          );
+          return m.href ? (
+            <Link key={m.title} href={m.href} className="block">
+              {card}
+            </Link>
+          ) : (
+            <div key={m.title}>{card}</div>
           );
         })}
       </div>
