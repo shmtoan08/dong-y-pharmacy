@@ -71,6 +71,10 @@ export default async function HerbDetailPage({
           <div className="md:col-span-2">
             <Field label="Công năng" value={herb.cong_nang} />
           </div>
+          <div className="md:col-span-2">
+            <Field label="Kiêng kỵ & Chống chỉ định" value={herb.kieng_ky} />
+          </div>
+          <Field label="Vị trí hộc tủ" value={herb.vi_tri_hoc_tu} />
         </CardContent>
       </Card>
 

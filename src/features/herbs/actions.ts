@@ -9,6 +9,9 @@ import { herbSchema, aliasSchema } from "./schemas";
 
 export interface ActionState {
   error?: string;
+  ok?: boolean;
+  code?: string;
+  name?: string;
 }
 
 export interface Herb {
@@ -23,6 +26,8 @@ export interface Herb {
   property_vi: string | null;
   quy_kinh: string[] | null;
   cong_nang: string | null;
+  kieng_ky: string | null;
+  vi_tri_hoc_tu: string | null;
   base_unit: string;
   price_per_unit: number | null;
   stock_quantity: number;
@@ -82,6 +87,8 @@ export async function createHerb(_prev: ActionState, formData: FormData): Promis
     property_vi: formData.get("property_vi") || undefined,
     quy_kinh: formData.get("quy_kinh") || undefined,
     cong_nang: formData.get("cong_nang") || undefined,
+    kieng_ky: formData.get("kieng_ky") || undefined,
+    vi_tri_hoc_tu: formData.get("vi_tri_hoc_tu") || undefined,
     base_unit: formData.get("base_unit") || "gram",
     price_per_unit: formData.get("price_per_unit") || undefined,
     stock_quantity: formData.get("stock_quantity") || undefined,
@@ -111,16 +118,20 @@ export async function createHerb(_prev: ActionState, formData: FormData): Promis
   const { rows } = await db.query<{ id: string; code: string }>(
     `INSERT INTO herbs (code, name_common, canonical_key, name_han_viet, name_science,
                         used_part, property_tinh, property_vi, quy_kinh, cong_nang,
+                        kieng_ky, vi_tri_hoc_tu,
                         base_unit, price_per_unit, stock_quantity, min_stock_quantity, is_valuable)
-     VALUES (next_herb_code(), $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+     VALUES (next_herb_code(), $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
      RETURNING id, code`,
     [v.name_common, key, v.name_han_viet ?? null, v.name_science ?? null,
      v.used_part ?? null, v.property_tinh ?? null, v.property_vi ?? null,
-     quyKinh, v.cong_nang ?? null, v.base_unit,
+     quyKinh, v.cong_nang ?? null, v.kieng_ky ?? null, v.vi_tri_hoc_tu ?? null, v.base_unit,
      v.price_per_unit ?? null, v.stock_quantity ?? 0, v.min_stock_quantity ?? 0,
      v.is_valuable],
   );
   await audit({ userId: user.id, action: "herb.create", tableName: "herb", rowId: rows[0].id, newValue: { code: rows[0].code } });
+  if (formData.get("_stay") === "1") {
+    return { ok: true, code: rows[0].code, name: v.name_common };
+  }
   redirect(`/herbs/${rows[0].id}`);
 }
 
@@ -139,6 +150,8 @@ export async function updateHerb(
     property_vi: formData.get("property_vi") || undefined,
     quy_kinh: formData.get("quy_kinh") || undefined,
     cong_nang: formData.get("cong_nang") || undefined,
+    kieng_ky: formData.get("kieng_ky") || undefined,
+    vi_tri_hoc_tu: formData.get("vi_tri_hoc_tu") || undefined,
     base_unit: formData.get("base_unit") || "gram",
     price_per_unit: formData.get("price_per_unit") || undefined,
     stock_quantity: formData.get("stock_quantity") || undefined,
@@ -170,12 +183,13 @@ export async function updateHerb(
     `UPDATE herbs SET name_common = $1, canonical_key = $2, name_han_viet = $3,
                       name_science = $4, used_part = $5, property_tinh = $6,
                       property_vi = $7, quy_kinh = $8, cong_nang = $9,
-                      base_unit = $10, price_per_unit = $11, stock_quantity = $12,
-                      min_stock_quantity = $13, is_valuable = $14, updated_at = NOW()
-     WHERE id = $15`,
+                      kieng_ky = $10, vi_tri_hoc_tu = $11,
+                      base_unit = $12, price_per_unit = $13, stock_quantity = $14,
+                      min_stock_quantity = $15, is_valuable = $16, updated_at = NOW()
+     WHERE id = $17`,
     [v.name_common, key, v.name_han_viet ?? null, v.name_science ?? null,
      v.used_part ?? null, v.property_tinh ?? null, v.property_vi ?? null,
-     quyKinh, v.cong_nang ?? null, v.base_unit,
+     quyKinh, v.cong_nang ?? null, v.kieng_ky ?? null, v.vi_tri_hoc_tu ?? null, v.base_unit,
      v.price_per_unit ?? null, v.stock_quantity ?? 0, v.min_stock_quantity ?? 0,
      v.is_valuable, id],
   );
