@@ -1,3 +1,4 @@
+import { BackButton } from "@/components/shared/BackButton";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireUser } from "@/lib/auth";
@@ -57,6 +58,7 @@ export default async function FormulaDetailPage({
 
   return (
     <div className="mx-auto max-w-4xl space-y-6">
+      <BackButton href="/formulas" />
       <div className="flex items-start justify-between">
         <div>
           <div className="flex items-center gap-3">

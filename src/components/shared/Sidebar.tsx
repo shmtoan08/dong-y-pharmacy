@@ -28,8 +28,8 @@ interface MenuItem {
 const MENU: MenuItem[] = [
   { href: "/", label: "Trang chủ", icon: Home, roles: ["admin", "practitioner", "dispenser"] },
   { href: "/formulas", label: "Bài thuốc", icon: BookOpen, roles: ["admin", "practitioner", "dispenser"] },
-  { href: "/patients", label: "Bệnh nhân", icon: Users, roles: ["admin", "practitioner", "dispenser"], comingSoon: true },
-  { href: "/visits", label: "Khám bệnh", icon: Stethoscope, roles: ["admin", "practitioner"], comingSoon: true },
+  { href: "/patients", label: "Bệnh nhân", icon: Users, roles: ["admin", "practitioner", "dispenser"] },
+  { href: "/visits", label: "Khám bệnh", icon: Stethoscope, roles: ["admin", "practitioner"] },
   { href: "/herbs", label: "Vị thuốc", icon: Leaf, roles: ["admin", "practitioner", "dispenser"], comingSoon: true },
   { href: "/admin/staff", label: "Nhân viên", icon: UserCog, roles: ["admin"] },
 ];

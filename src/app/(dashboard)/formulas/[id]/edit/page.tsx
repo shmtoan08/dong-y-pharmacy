@@ -1,3 +1,4 @@
+import { BackButton } from "@/components/shared/BackButton";
 import { notFound } from "next/navigation";
 import { requireRole } from "@/lib/auth";
 import { db } from "@/lib/db";
@@ -28,6 +29,7 @@ export default async function EditFormulaPage({
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
+      <BackButton href={`/formulas/${id}`} />
       <div>
         <h1 className="text-2xl font-bold">Sửa bài thuốc</h1>
         <p className="text-muted-foreground">

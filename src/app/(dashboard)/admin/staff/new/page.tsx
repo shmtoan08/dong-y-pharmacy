@@ -1,5 +1,6 @@
 "use client";
 
+import { BackButton } from "@/components/shared/BackButton";
 import { useActionState } from "react";
 import Link from "next/link";
 import { createUser } from "@/features/users/actions";
@@ -25,6 +26,7 @@ export default function NewStaffPage() {
 
   return (
     <div className="mx-auto max-w-xl space-y-6">
+      <BackButton href="/admin/staff" />
       <h1 className="text-2xl font-bold">Thêm nhân viên</h1>
 
       <Card>

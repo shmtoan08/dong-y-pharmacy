@@ -24,9 +24,10 @@ const MODULES = [
     title: "Bệnh nhân",
     description: "Hồ sơ và quá trình điều trị",
     icon: Users,
-    phase: "MVP-2",
+    phase: "",
     accent: "border-t-amber-500",
     iconBg: "bg-amber-100 text-amber-700",
+    href: "/patients",
   },
   {
     title: "Kho dược liệu",
