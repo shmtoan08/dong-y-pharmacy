@@ -13,8 +13,10 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { NewVisitDialog } from "./NewVisitDialog";
+import { PageSizeSelect } from "./PageSizeSelect";
+import { Eye, Pill, Printer } from "lucide-react";
 
-const PAGE_SIZE = 10;
+const PAGE_SIZES = [10, 25, 50];
 
 const DATE_FILTERS = [
   { value: "all", label: "Tất cả ngày" },
@@ -29,14 +31,16 @@ const STATUS_FILTERS = [
   { value: "prescribed", label: "Đã kê đơn" },
 ];
 
-function calcAge(dob: string | null): string {
-  if (!dob) return "—";
+function ageGender(dob: string | null, sex: string | null): string {
+  const sexLabel = sex ? SEX_LABEL[sex] ?? sex : null;
+  if (!dob) return sexLabel ?? "—";
   const birth = new Date(dob);
   const now = new Date();
   let age = now.getFullYear() - birth.getFullYear();
   const m = now.getMonth() - birth.getMonth();
   if (m < 0 || (m === 0 && now.getDate() < birth.getDate())) age--;
-  return age >= 0 ? `${age}` : "—";
+  const ageStr = age >= 0 ? `${age} tuổi` : null;
+  return [ageStr, sexLabel].filter(Boolean).join(" / ") || "—";
 }
 
 const SEX_LABEL: Record<string, string> = { male: "Nam", female: "Nữ", other: "Khác" };
@@ -44,7 +48,7 @@ const SEX_LABEL: Record<string, string> = { male: "Nam", female: "Nữ", other: 
 export default async function VisitsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; date?: string; status?: string; page?: string }>;
+  searchParams: Promise<{ q?: string; date?: string; status?: string; page?: string; size?: string }>;
 }) {
   await requireRole("admin", "practitioner");
 
@@ -53,6 +57,7 @@ export default async function VisitsPage({
   const dateFilter = sp.date ?? "all";
   const statusFilter = sp.status ?? "all";
   const page = Math.max(1, Number(sp.page) || 1);
+  const pageSize = PAGE_SIZES.includes(Number(sp.size)) ? Number(sp.size) : 10;
 
   const conditions: string[] = [];
   const params: unknown[] = [];
@@ -98,9 +103,9 @@ export default async function VisitsPage({
     params,
   );
   const total = Number(countRows[0].count);
-  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
   const safePage = Math.min(page, totalPages);
-  const offset = (safePage - 1) * PAGE_SIZE;
+  const offset = (safePage - 1) * pageSize;
 
   const { rows } = await db.query<VisitRow>(
     `SELECT v.id, v.visited_at, v.final_diagnosis, v.patient_id,
@@ -113,17 +118,17 @@ export default async function VisitsPage({
      ${havingPrescription ? (where ? "AND" : "WHERE") + " pr.id IS NOT NULL" : ""}
      ${noPrescription ? (where ? "AND" : "WHERE") + " pr.id IS NULL" : ""}
      ORDER BY v.visited_at DESC
-     LIMIT ${PAGE_SIZE} OFFSET ${offset}`,
+     LIMIT ${pageSize} OFFSET ${offset}`,
     params,
   );
 
   const buildHref = (overrides: Record<string, string>) => {
-    const next = { q, date: dateFilter, status: statusFilter, page: String(safePage), ...overrides };
+    const next = { q, date: dateFilter, status: statusFilter, page: String(safePage), size: String(pageSize), ...overrides };
     const parts = Object.entries(next)
       .filter(([, v]) => v && !(v === "all" && ["date", "status"].includes(v as string)))
       .map(([k, v]) => `${k}=${encodeURIComponent(v)}`);
     // Giữ date/status=all để filter rõ ràng
-    const all = Object.entries({ q: next.q, date: next.date, status: next.status, page: next.page })
+    const all = Object.entries({ q: next.q, date: next.date, status: next.status, page: next.page, size: next.size })
       .filter(([, v]) => v)
       .map(([k, v]) => `${k}=${encodeURIComponent(v)}`);
     return `/visits?${all.join("&")}`;
@@ -195,6 +200,7 @@ export default async function VisitsPage({
                   <th className="px-4 py-3">Chẩn đoán</th>
                   <th className="px-4 py-3">Ngày khám</th>
                   <th className="px-4 py-3 text-right">Trạng thái</th>
+                  <th className="px-4 py-3 text-right">Thao tác</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-stone-100">
@@ -210,7 +216,7 @@ export default async function VisitsPage({
                       {v.phone && <p className="text-xs text-stone-500">{v.phone}</p>}
                     </td>
                     <td className="whitespace-nowrap px-4 py-3 text-stone-600">
-                      {calcAge(v.date_of_birth)} / {v.sex ? SEX_LABEL[v.sex] ?? v.sex : "—"}
+                      {ageGender(v.date_of_birth, v.sex)}
                     </td>
                     <td className="max-w-48 truncate px-4 py-3 text-stone-600">
                       {v.final_diagnosis ?? "—"}
@@ -232,6 +238,28 @@ export default async function VisitsPage({
                         <Badge variant="secondary">Chưa kê đơn</Badge>
                       )}
                     </td>
+                    <td className="whitespace-nowrap px-4 py-3">
+                      <div className="flex justify-end gap-1">
+                        <Link href={`/patients/${v.patient_id}`} title="Xem bệnh án">
+                          <Button variant="ghost" size="icon" className="h-8 w-8 text-stone-500 hover:text-emerald-700">
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                        </Link>
+                        {!v.prescription_id ? (
+                          <Link href={`/prescriptions/new?visitId=${v.id}`} title="Kê đơn thuốc">
+                            <Button variant="ghost" size="icon" className="h-8 w-8 text-stone-500 hover:text-emerald-700">
+                              <Pill className="h-4 w-4" />
+                            </Button>
+                          </Link>
+                        ) : (
+                          <Link href={`/prescriptions/${v.prescription_id}/print`} title="In đơn thuốc">
+                            <Button variant="ghost" size="icon" className="h-8 w-8 text-stone-500 hover:text-emerald-700">
+                              <Printer className="h-4 w-4" />
+                            </Button>
+                          </Link>
+                        )}
+                      </div>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -246,8 +274,7 @@ export default async function VisitsPage({
           <p className="py-6 text-center text-sm text-stone-500">Không tìm thấy lượt khám nào.</p>
         ) : (
           rows.map((v) => (
-            <Link key={v.id} href={`/patients/${v.patient_id}`}>
-              <Card className="transition-shadow hover:shadow-md">
+              <Card key={v.id} className="transition-shadow hover:shadow-md">
                 <CardContent className="space-y-1.5 p-4">
                   <div className="flex items-center justify-between gap-2">
                     <p className="font-medium text-stone-900">
@@ -265,7 +292,7 @@ export default async function VisitsPage({
                     )}
                   </div>
                   <p className="text-xs text-stone-500">
-                    {calcAge(v.date_of_birth)} tuổi · {v.sex ? SEX_LABEL[v.sex] ?? v.sex : "—"}
+                    {ageGender(v.date_of_birth, v.sex)}
                     {v.phone ? ` · ${v.phone}` : ""}
                   </p>
                   {v.final_diagnosis && (
@@ -277,19 +304,41 @@ export default async function VisitsPage({
                       hour: "2-digit", minute: "2-digit",
                     })}
                   </p>
+                  <div className="flex gap-2 pt-1">
+                    <Link href={`/patients/${v.patient_id}`}>
+                      <Button variant="outline" size="sm">
+                        <Eye className="mr-1 h-3.5 w-3.5" /> Bệnh án
+                      </Button>
+                    </Link>
+                    {!v.prescription_id ? (
+                      <Link href={`/prescriptions/new?visitId=${v.id}`}>
+                        <Button variant="outline" size="sm" className="text-emerald-700">
+                          <Pill className="mr-1 h-3.5 w-3.5" /> Kê đơn
+                        </Button>
+                      </Link>
+                    ) : (
+                      <Link href={`/prescriptions/${v.prescription_id}`}>
+                        <Button variant="outline" size="sm">
+                          <Eye className="mr-1 h-3.5 w-3.5" /> Xem đơn
+                        </Button>
+                      </Link>
+                    )}
+                  </div>
                 </CardContent>
               </Card>
-            </Link>
           ))
         )}
       </div>
 
-      {/* Phân trang */}
-      {totalPages > 1 && (
-        <div className="flex items-center justify-between text-sm text-stone-500">
-          <p>
-            Hiển thị {offset + 1}–{Math.min(offset + PAGE_SIZE, total)} trên {total} lượt khám
-          </p>
+      {/* Chân bảng: hien thi + phan trang + chon so dong */}
+      <div className="flex flex-wrap items-center justify-between gap-3 text-sm text-stone-500">
+        <p>
+          {total === 0
+            ? "Không có lượt khám nào"
+            : `Hiển thị ${offset + 1}–${Math.min(offset + pageSize, total)} trên ${total} lượt khám`}
+        </p>
+        <div className="flex items-center gap-3">
+          <PageSizeSelect value={pageSize} options={PAGE_SIZES} />
           <div className="flex gap-1">
             <Link href={buildHref({ page: String(safePage - 1) })}>
               <Button variant="outline" size="sm" disabled={safePage <= 1}>‹</Button>
@@ -302,7 +351,7 @@ export default async function VisitsPage({
             </Link>
           </div>
         </div>
-      )}
+      </div>
     </div>
   );
 }
