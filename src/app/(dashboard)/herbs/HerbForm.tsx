@@ -9,6 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { herbSchema, type HerbInput } from "@/features/herbs/schemas";
+import { z } from "zod";
 import type { ActionState } from "@/features/herbs/actions";
 import { cn } from "@/lib/utils";
 
@@ -24,7 +25,7 @@ export function HerbForm({ action, initial, submitLabel }: HerbFormProps) {
     register,
     handleSubmit,
     formState: { errors, isSubmitting },
-  } = useForm<HerbInput>({
+  } = useForm<z.input<typeof herbSchema>>({
     resolver: zodResolver(herbSchema),
     mode: "onTouched",
     defaultValues: {
@@ -37,12 +38,15 @@ export function HerbForm({ action, initial, submitLabel }: HerbFormProps) {
       quy_kinh: "",
       cong_nang: "",
       base_unit: "gram",
+      price_per_unit: undefined,
+      stock_quantity: 0,
+      min_stock_quantity: 0,
       is_valuable: false,
       ...initial,
     },
   });
 
-  const onSubmit = async (values: HerbInput) => {
+  const onSubmit = async (values: z.input<typeof herbSchema>) => {
     setServerError(undefined);
     const formData = new FormData();
     for (const [k, v] of Object.entries(values)) {
@@ -123,6 +127,18 @@ export function HerbForm({ action, initial, submitLabel }: HerbFormProps) {
             <div className="space-y-1.5">
               <Label htmlFor="base_unit">Đơn vị tính</Label>
               <Input id="base_unit" maxLength={20} {...register("base_unit")} />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="price_per_unit">Đơn giá (đ / đơn vị)</Label>
+              <Input id="price_per_unit" type="number" min={0} step={1} {...register("price_per_unit")} />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="stock_quantity">Tồn kho</Label>
+              <Input id="stock_quantity" type="number" min={0} step={0.01} {...register("stock_quantity")} />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="min_stock_quantity">Ngưỡng cảnh báo sắp hết</Label>
+              <Input id="min_stock_quantity" type="number" min={0} step={0.01} {...register("min_stock_quantity")} />
             </div>
             <div className="flex items-end pb-2">
               <label className="flex cursor-pointer items-center gap-2 text-sm">

@@ -10,6 +10,9 @@ export const herbSchema = z.object({
   quy_kinh: z.string().max(200).optional(), // nhập "tỳ, phế" → array
   cong_nang: z.string().max(2000).optional(),
   base_unit: z.string().max(20),
+  price_per_unit: z.coerce.number().min(0, "Đơn giá không âm").optional(),
+  stock_quantity: z.coerce.number().min(0, "Tồn kho không âm").optional(),
+  min_stock_quantity: z.coerce.number().min(0, "Ngưỡng không âm").optional(),
   is_valuable: z.boolean(),
 });
 

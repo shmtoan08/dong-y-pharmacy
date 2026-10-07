@@ -24,6 +24,9 @@ export interface Herb {
   quy_kinh: string[] | null;
   cong_nang: string | null;
   base_unit: string;
+  price_per_unit: number | null;
+  stock_quantity: number;
+  min_stock_quantity: number;
   is_valuable: boolean;
   is_active: boolean;
 }
@@ -42,7 +45,8 @@ export async function searchHerbs(query: string, limit = 10): Promise<Herb[]> {
   const { rows } = await db.query<Herb>(
     `SELECT h.id, h.code, h.name_common, h.canonical_key, h.name_han_viet,
             h.name_science, h.used_part, h.property_tinh, h.property_vi,
-            h.quy_kinh, h.cong_nang, h.base_unit, h.is_valuable, h.is_active
+            h.quy_kinh, h.cong_nang, h.base_unit, h.price_per_unit, h.stock_quantity,
+            h.min_stock_quantity, h.is_valuable, h.is_active
      FROM herbs h
      LEFT JOIN herb_aliases a ON a.herb_id = h.id
      WHERE h.is_active = true
@@ -79,6 +83,9 @@ export async function createHerb(_prev: ActionState, formData: FormData): Promis
     quy_kinh: formData.get("quy_kinh") || undefined,
     cong_nang: formData.get("cong_nang") || undefined,
     base_unit: formData.get("base_unit") || "gram",
+    price_per_unit: formData.get("price_per_unit") || undefined,
+    stock_quantity: formData.get("stock_quantity") || undefined,
+    min_stock_quantity: formData.get("min_stock_quantity") || undefined,
     is_valuable: formData.get("is_valuable") === "on",
   });
   if (!parsed.success) {
@@ -104,12 +111,14 @@ export async function createHerb(_prev: ActionState, formData: FormData): Promis
   const { rows } = await db.query<{ id: string; code: string }>(
     `INSERT INTO herbs (code, name_common, canonical_key, name_han_viet, name_science,
                         used_part, property_tinh, property_vi, quy_kinh, cong_nang,
-                        base_unit, is_valuable)
-     VALUES (next_herb_code(), $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+                        base_unit, price_per_unit, stock_quantity, min_stock_quantity, is_valuable)
+     VALUES (next_herb_code(), $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
      RETURNING id, code`,
     [v.name_common, key, v.name_han_viet ?? null, v.name_science ?? null,
      v.used_part ?? null, v.property_tinh ?? null, v.property_vi ?? null,
-     quyKinh, v.cong_nang ?? null, v.base_unit, v.is_valuable],
+     quyKinh, v.cong_nang ?? null, v.base_unit,
+     v.price_per_unit ?? null, v.stock_quantity ?? 0, v.min_stock_quantity ?? 0,
+     v.is_valuable],
   );
   await audit({ userId: user.id, action: "herb.create", tableName: "herb", rowId: rows[0].id, newValue: { code: rows[0].code } });
   redirect(`/herbs/${rows[0].id}`);
@@ -131,6 +140,9 @@ export async function updateHerb(
     quy_kinh: formData.get("quy_kinh") || undefined,
     cong_nang: formData.get("cong_nang") || undefined,
     base_unit: formData.get("base_unit") || "gram",
+    price_per_unit: formData.get("price_per_unit") || undefined,
+    stock_quantity: formData.get("stock_quantity") || undefined,
+    min_stock_quantity: formData.get("min_stock_quantity") || undefined,
     is_valuable: formData.get("is_valuable") === "on",
   });
   if (!parsed.success) {
@@ -158,11 +170,14 @@ export async function updateHerb(
     `UPDATE herbs SET name_common = $1, canonical_key = $2, name_han_viet = $3,
                       name_science = $4, used_part = $5, property_tinh = $6,
                       property_vi = $7, quy_kinh = $8, cong_nang = $9,
-                      base_unit = $10, is_valuable = $11, updated_at = NOW()
-     WHERE id = $12`,
+                      base_unit = $10, price_per_unit = $11, stock_quantity = $12,
+                      min_stock_quantity = $13, is_valuable = $14, updated_at = NOW()
+     WHERE id = $15`,
     [v.name_common, key, v.name_han_viet ?? null, v.name_science ?? null,
      v.used_part ?? null, v.property_tinh ?? null, v.property_vi ?? null,
-     quyKinh, v.cong_nang ?? null, v.base_unit, v.is_valuable, id],
+     quyKinh, v.cong_nang ?? null, v.base_unit,
+     v.price_per_unit ?? null, v.stock_quantity ?? 0, v.min_stock_quantity ?? 0,
+     v.is_valuable, id],
   );
   await audit({ userId: user.id, action: "herb.update", tableName: "herb", rowId: id, newValue: {} });
   redirect(`/herbs/${id}`);
