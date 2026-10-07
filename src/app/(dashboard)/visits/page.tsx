@@ -13,7 +13,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { NewVisitDialog } from "./NewVisitDialog";
-import { PageSizeSelect } from "./PageSizeSelect";
+import { PageSizeSelect } from "./PageSizeSelect"
+import { VisitFilterToolbar } from "./VisitFilterToolbar"
+import { Tooltip, TooltipProvider } from "@/components/ui/tooltip";
 import { Eye, Pill, Printer } from "lucide-react";
 
 const PAGE_SIZES = [10, 25, 50];
@@ -135,6 +137,7 @@ export default async function VisitsPage({
   };
 
   return (
+    <TooltipProvider>
     <div className="space-y-4">
       {/* Header + CTA */}
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -147,43 +150,8 @@ export default async function VisitsPage({
         <NewVisitDialog />
       </div>
 
-      {/* Toolbar lọc */}
-      <form method="get" className="flex flex-wrap gap-2">
-        <Input
-          name="q"
-          defaultValue={q}
-          placeholder="Tìm tên, SĐT, mã BN..."
-          className="min-w-0 flex-1 md:max-w-xs"
-        />
-        <Select name="date" defaultValue={dateFilter}>
-          <SelectTrigger className="w-36">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {DATE_FILTERS.map((d) => (
-              <SelectItem key={d.value} value={d.value}>{d.label}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Select name="status" defaultValue={statusFilter}>
-          <SelectTrigger className="w-40">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {STATUS_FILTERS.map((s) => (
-              <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Button type="submit" size="sm" className="bg-emerald-800 hover:bg-emerald-900">
-          Lọc
-        </Button>
-        {(q || dateFilter !== "all" || statusFilter !== "all") && (
-          <Link href="/visits">
-            <Button type="button" variant="ghost" size="sm">Xóa lọc</Button>
-          </Link>
-        )}
-      </form>
+      {/* Toolbar lọc tự động */}
+      <VisitFilterToolbar initialQ={q} initialDate={dateFilter} initialStatus={statusFilter} />
 
       {/* Bảng desktop */}
       <Card className="hidden md:block">
@@ -240,23 +208,29 @@ export default async function VisitsPage({
                     </td>
                     <td className="whitespace-nowrap px-4 py-3">
                       <div className="flex justify-end gap-1">
-                        <Link href={`/patients/${v.patient_id}`} title="Xem bệnh án">
+                        <Tooltip label="Xem bệnh án">
+                          <Link href={`/patients/${v.patient_id}`}>
                           <Button variant="ghost" size="icon" className="h-8 w-8 text-stone-500 hover:text-emerald-700">
                             <Eye className="h-4 w-4" />
                           </Button>
-                        </Link>
+                          </Link>
+                        </Tooltip>
                         {!v.prescription_id ? (
-                          <Link href={`/prescriptions/new?visitId=${v.id}`} title="Kê đơn thuốc">
+                          <Tooltip label="Kê đơn thuốc">
+                            <Link href={`/prescriptions/new?visitId=${v.id}`}>
                             <Button variant="ghost" size="icon" className="h-8 w-8 text-stone-500 hover:text-emerald-700">
                               <Pill className="h-4 w-4" />
                             </Button>
-                          </Link>
+                            </Link>
+                          </Tooltip>
                         ) : (
-                          <Link href={`/prescriptions/${v.prescription_id}/print`} title="In đơn thuốc">
+                          <Tooltip label="In đơn thuốc">
+                            <Link href={`/prescriptions/${v.prescription_id}/print`}>
                             <Button variant="ghost" size="icon" className="h-8 w-8 text-stone-500 hover:text-emerald-700">
                               <Printer className="h-4 w-4" />
                             </Button>
-                          </Link>
+                            </Link>
+                          </Tooltip>
                         )}
                       </div>
                     </td>
@@ -353,5 +327,6 @@ export default async function VisitsPage({
         </div>
       </div>
     </div>
+    </TooltipProvider>
   );
 }
