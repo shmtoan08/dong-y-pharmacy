@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -74,6 +74,28 @@ export function Sidebar({
   const items = MENU.filter((m) => m.roles.includes(role));
   const [comingSoonLabel, setComingSoonLabel] = useState<string | null>(null);
 
+  // Menu active = menu nguoi dung bam chon (luu sessionStorage),
+  // khong tu doi khi bam link ben trong trang. Chi doi khi chon menu khac.
+  const urlActive = (href: string) =>
+    href === "/" ? pathname === "/" : pathname.startsWith(href);
+  const [activeHref, setActiveHref] = useState<string | null>(null);
+  useEffect(() => {
+    const saved = sessionStorage.getItem("dongy_active_menu");
+    if (saved && items.some((m) => m.href === saved)) {
+      setActiveHref(saved);
+    } else {
+      const match = items.find((m) => urlActive(m.href));
+      setActiveHref(match ? match.href : null);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pathname]);
+
+  const handleMenuClick = (href: string) => {
+    sessionStorage.setItem("dongy_active_menu", href);
+    setActiveHref(href);
+    onNavigate?.();
+  };
+
   return (
     <aside className="flex h-full w-64 shrink-0 flex-col bg-emerald-950 text-emerald-50">
       {/* Brand */}
@@ -91,10 +113,7 @@ export function Sidebar({
       <nav className="flex-1 space-y-0.5 overflow-y-auto px-3 py-2">
         {items.map((item, idx) => {
           const showSection = item.section && (idx === 0 || items[idx - 1].section !== item.section);
-          const active =
-            item.href === "/"
-              ? pathname === "/"
-              : pathname.startsWith(item.href);
+          const active = activeHref === item.href;
           const Icon = item.icon;
           const content = (
             <>
@@ -130,7 +149,7 @@ export function Sidebar({
             <Link
               href={item.href}
               className={cls}
-              onClick={() => onNavigate?.()}
+              onClick={() => handleMenuClick(item.href)}
             >
               {content}
             </Link>
