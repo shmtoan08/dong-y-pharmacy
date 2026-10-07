@@ -89,18 +89,41 @@ export async function createPrescriptionDraft(
       );
       const pid = rows[0].id;
       for (const it of d.items) {
+        const herbName = it.herb_name.trim();
+        const herbKey = normalizeHerbKey(it.herb_name);
+        // Nếu chọn từ danh mục mà herb_id không hợp lệ → bỏ qua (dùng text)
+        let herbId: string | null = null;
+        if (it.herb_id) {
+          const { rows: hv } = await tx.query(
+            `SELECT id FROM herbs WHERE id = $1 AND is_active = true`,
+            [it.herb_id],
+          );
+          if (hv.length > 0) herbId = hv[0].id;
+        }
         await tx.query(
           `INSERT INTO prescription_items
-             (prescription_id, herb_name, herb_name_key, weight_per_pack, note)
-           VALUES ($1, $2, $3, $4, $5)`,
-          [
-            pid,
-            it.herb_name.trim(),
-            normalizeHerbKey(it.herb_name),
-            it.weight_per_pack,
-            it.note?.trim() || null,
-          ],
+             (prescription_id, herb_id, herb_name, herb_name_key, weight_per_pack, note)
+           VALUES ($1, $2, $3, $4, $5, $6)`,
+          [pid, herbId, herbName, herbKey, it.weight_per_pack, it.note?.trim() || null],
         );
+        // Text tự do (không có herb_id) → tạo mapping pending để duyệt sau
+        if (!herbId) {
+          await tx.query(
+            `INSERT INTO herb_migration_mappings (source_text, normalized_key, herb_id, confidence)
+             VALUES ($1, $2,
+               (SELECT id FROM herbs WHERE canonical_key = $2 AND is_active = true
+                UNION ALL
+                SELECT herb_id FROM herb_aliases WHERE alias_key = $2
+                LIMIT 1),
+               CASE WHEN EXISTS (
+                 SELECT 1 FROM herbs WHERE canonical_key = $2 AND is_active = true
+                 UNION ALL
+                 SELECT 1 FROM herb_aliases WHERE alias_key = $2
+               ) THEN '1.00' ELSE NULL END)
+             ON CONFLICT (source_text, normalized_key) DO NOTHING`,
+            [herbName, herbKey],
+          );
+        }
       }
       return pid;
     });

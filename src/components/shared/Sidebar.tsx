@@ -30,7 +30,7 @@ const MENU: MenuItem[] = [
   { href: "/formulas", label: "Bài thuốc", icon: BookOpen, roles: ["admin", "practitioner", "dispenser"] },
   { href: "/patients", label: "Bệnh nhân", icon: Users, roles: ["admin", "practitioner", "dispenser"] },
   { href: "/visits", label: "Khám bệnh", icon: Stethoscope, roles: ["admin", "practitioner"] },
-  { href: "/herbs", label: "Vị thuốc", icon: Leaf, roles: ["admin", "practitioner", "dispenser"], comingSoon: true },
+  { href: "/herbs", label: "Vị thuốc", icon: Leaf, roles: ["admin", "practitioner", "dispenser"] },
   { href: "/admin/staff", label: "Nhân viên", icon: UserCog, roles: ["admin"] },
 ];
 

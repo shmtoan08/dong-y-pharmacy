@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 export const prescriptionItemSchema = z.object({
+  herb_id: z.string().uuid().nullable().optional(),
   herb_name: z.string().min(1, "Tên vị thuốc bắt buộc").max(100),
   weight_per_pack: z
     .number({ message: "Liều phải là số" })

@@ -15,6 +15,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { HerbAutocomplete } from "./HerbAutocomplete";
 import {
   createPrescriptionDraft,
   getTemplateItemsForPrescription,
@@ -29,6 +30,7 @@ interface TemplateOption {
 }
 
 interface HerbRow {
+  herb_id: string | null;
   herb_name: string;
   weight_per_pack: number;
   note: string;
@@ -48,13 +50,14 @@ export function PrescriptionBuilder({
   const [state, formAction] = useActionState(createPrescriptionDraft, {} as ActionState);
   const [templateId, setTemplateId] = useState(initialTemplateId ?? "");
 
-  const { register, control, watch } = useForm<{ items: HerbRow[] }>({
+  const { register, control, watch, setValue } = useForm<{ items: HerbRow[] }>({
     defaultValues: {
       items: initialItems?.map((it) => ({
+        herb_id: null,
         herb_name: it.herb_name,
         weight_per_pack: 12,
         note: "",
-      })) ?? [{ herb_name: "", weight_per_pack: 12, note: "" }],
+      })) ?? [{ herb_id: null, herb_name: "", weight_per_pack: 12, note: "" }],
     },
   });
   const { fields, prepend, remove, replace } = useFieldArray({ control, name: "items" });
@@ -72,6 +75,7 @@ export function PrescriptionBuilder({
       const tplItems = await getTemplateItemsForPrescription(tid);
       replace(
         tplItems.map((it) => ({
+          herb_id: null,
           herb_name: it.herb_name,
           weight_per_pack: 12,
           note: "",
@@ -84,6 +88,7 @@ export function PrescriptionBuilder({
 
   const handleSubmit = (formData: FormData) => {
     const payload = (items ?? []).map((it) => ({
+      herb_id: it.herb_id || undefined,
       herb_name: it.herb_name,
       weight_per_pack: Number(it.weight_per_pack) || 0,
       note: it.note || undefined,
@@ -155,7 +160,7 @@ export function PrescriptionBuilder({
             type="button"
             variant="outline"
             size="sm"
-            onClick={() => prepend({ herb_name: "", weight_per_pack: 12, note: "" })}
+            onClick={() => prepend({ herb_id: null, herb_name: "", weight_per_pack: 12, note: "" })}
           >
             <Plus className="mr-1 h-4 w-4" /> Thêm vị
           </Button>
@@ -173,9 +178,14 @@ export function PrescriptionBuilder({
               key={field.id}
               className="grid grid-cols-1 gap-2 rounded-lg border border-stone-200 p-3 md:grid-cols-[1fr_120px_1fr_40px] md:border-0 md:p-0"
             >
-              <Input
+              <HerbAutocomplete
+                name={`items.${i}.herb_name`}
+                defaultValue={field.herb_name}
                 placeholder="Tên vị thuốc"
-                {...register(`items.${i}.herb_name`)}
+                onHerbChange={(herbId, herbName) => {
+                  setValue(`items.${i}.herb_id`, herbId, { shouldDirty: true });
+                  setValue(`items.${i}.herb_name`, herbName, { shouldDirty: true });
+                }}
               />
               <Input
                 type="number"
