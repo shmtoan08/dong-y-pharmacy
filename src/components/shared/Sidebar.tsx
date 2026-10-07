@@ -23,15 +23,16 @@ interface MenuItem {
   icon: React.ComponentType<{ className?: string }>;
   roles: Role[];
   comingSoon?: boolean;
+  section?: string;
 }
 
 const MENU: MenuItem[] = [
-  { href: "/", label: "Trang chủ", icon: Home, roles: ["admin", "practitioner", "dispenser"] },
-  { href: "/formulas", label: "Bài thuốc", icon: BookOpen, roles: ["admin", "practitioner", "dispenser"] },
-  { href: "/patients", label: "Bệnh nhân", icon: Users, roles: ["admin", "practitioner", "dispenser"] },
-  { href: "/visits", label: "Khám bệnh", icon: Stethoscope, roles: ["admin", "practitioner"] },
-  { href: "/herbs", label: "Vị thuốc", icon: Leaf, roles: ["admin", "practitioner", "dispenser"] },
-  { href: "/admin/staff", label: "Nhân viên", icon: UserCog, roles: ["admin"] },
+  { href: "/", label: "Bảng điều khiển", icon: Home, roles: ["admin", "practitioner", "dispenser"], section: "Tổng quan" },
+  { href: "/visits", label: "Khám bệnh", icon: Stethoscope, roles: ["admin", "practitioner"], section: "Nghiệp vụ y khoa" },
+  { href: "/patients", label: "Bệnh nhân", icon: Users, roles: ["admin", "practitioner", "dispenser"], section: "Nghiệp vụ y khoa" },
+  { href: "/formulas", label: "Bài thuốc", icon: BookOpen, roles: ["admin", "practitioner", "dispenser"], section: "Nghiệp vụ y khoa" },
+  { href: "/herbs", label: "Vị thuốc", icon: Leaf, roles: ["admin", "practitioner", "dispenser"], section: "Dược liệu & Kho" },
+  { href: "/admin/staff", label: "Nhân viên", icon: UserCog, roles: ["admin"], section: "Hệ thống" },
 ];
 
 export function Sidebar({
@@ -60,7 +61,8 @@ export function Sidebar({
 
       {/* Menu */}
       <nav className="flex-1 space-y-1 overflow-y-auto p-3">
-        {items.map((item) => {
+        {items.map((item, idx) => {
+          const showSection = item.section && (idx === 0 || items[idx - 1].section !== item.section);
           const active =
             item.href === "/"
               ? pathname === "/"
@@ -87,28 +89,33 @@ export function Sidebar({
               : "text-emerald-100/70 hover:bg-emerald-900 hover:text-white",
             item.comingSoon && "opacity-60",
           );
-          // Mục "Sắp có": bấm được → hiện modal thông báo (không dùng window.alert)
-          if (item.comingSoon) {
-            return (
-              <button
-                key={item.href}
-                type="button"
-                className={cn(cls, "cursor-pointer text-left")}
-                onClick={() => setComingSoonLabel(item.label)}
-              >
-                {content}
-              </button>
-            );
-          }
-          return (
+          const menuLink = item.comingSoon ? (
+            // Mục "Sắp có": bấm được → hiện modal thông báo (không dùng window.alert)
+            <button
+              type="button"
+              className={cn(cls, "cursor-pointer text-left")}
+              onClick={() => setComingSoonLabel(item.label)}
+            >
+              {content}
+            </button>
+          ) : (
             <Link
-              key={item.href}
               href={item.href}
               className={cls}
               onClick={() => onNavigate?.()}
             >
               {content}
             </Link>
+          );
+          return (
+            <div key={item.href}>
+              {showSection && (
+                <p className="px-3 pb-1 pt-3 text-[11px] font-semibold uppercase tracking-wider text-emerald-300/60">
+                  {item.section}
+                </p>
+              )}
+              {menuLink}
+            </div>
           );
         })}
       </nav>
