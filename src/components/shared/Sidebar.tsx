@@ -88,7 +88,7 @@ export function Sidebar({
       </div>
 
       {/* Menu */}
-      <nav className="flex-1 space-y-1 overflow-y-auto p-3">
+      <nav className="flex-1 space-y-0.5 overflow-y-auto px-3 py-2">
         {items.map((item, idx) => {
           const showSection = item.section && (idx === 0 || items[idx - 1].section !== item.section);
           const active =
@@ -111,7 +111,7 @@ export function Sidebar({
             </>
           );
           const cls = cn(
-            "flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all",
+            "flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium transition-all",
             active
               ? "bg-emerald-800 text-white shadow-md"
               : "text-emerald-100/70 hover:bg-emerald-900 hover:text-white",
@@ -138,7 +138,7 @@ export function Sidebar({
           return (
             <div key={item.href}>
               {showSection && (
-                <p className="px-3 pb-1 pt-3 text-[11px] font-semibold uppercase tracking-wider text-emerald-300/60">
+                <p className="px-3 pb-0.5 pt-2 text-[10px] font-semibold uppercase tracking-wider text-emerald-300/50">
                   {item.section}
                 </p>
               )}
