@@ -1,4 +1,5 @@
 import { BackButton } from "@/components/shared/BackButton";
+import { SimpleTabs } from "@/components/shared/SimpleTabs";
 import { getPatient } from "@/features/patients/actions";
 import { getVisitsByPatient } from "@/features/visits/actions";
 import { getPrescriptionsByVisit } from "@/features/prescriptions/actions";
@@ -13,7 +14,6 @@ import { notFound } from "next/navigation";
 
 const SEX_LABEL: Record<string, string> = { male: "Nam", female: "Nữ", other: "Khác" };
 
-
 export default async function PatientDetailPage({
   params,
 }: {
@@ -27,11 +27,114 @@ export default async function PatientDetailPage({
   const prescriptionsByVisit = await Promise.all(
     visits.map(async (v) => ({ visit: v, prescriptions: await getPrescriptionsByVisit(v.id) })),
   );
+  const allPrescriptions = prescriptionsByVisit.flatMap(({ visit, prescriptions }) =>
+    prescriptions.map((pr) => ({ ...pr, visit })),
+  );
 
   const canEdit = user.role === "admin" || user.role === "practitioner";
   const dob = patient.date_of_birth
     ? new Date(patient.date_of_birth).toLocaleDateString("vi-VN")
     : "—";
+
+  const infoTab = (
+    <Card>
+      <CardContent className="grid gap-2 p-4 text-sm md:grid-cols-2">
+        <p><span className="font-medium">Ngày sinh:</span> {dob}</p>
+        <p><span className="font-medium">Giới tính:</span> {patient.sex ? SEX_LABEL[patient.sex] ?? patient.sex : "—"}</p>
+        <p><span className="font-medium">SĐT:</span> {patient.phone ?? "—"}</p>
+        <p><span className="font-medium">Địa chỉ:</span> {patient.address ?? "—"}</p>
+        {patient.medical_history && (
+          <p className="md:col-span-2"><span className="font-medium">Tiền sử:</span> {patient.medical_history}</p>
+        )}
+        {patient.allergies && (
+          <p className="md:col-span-2"><span className="font-medium text-red-700">Dị ứng:</span> {patient.allergies}</p>
+        )}
+      </CardContent>
+    </Card>
+  );
+
+  const visitsTab = (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-base">Quá trình thăm khám ({visits.length})</CardTitle>
+      </CardHeader>
+      <CardContent>
+        {visits.length === 0 ? (
+          <p className="py-4 text-center text-sm text-stone-500">Chưa có lượt khám nào.</p>
+        ) : (
+          <div className="relative space-y-4 before:absolute before:bottom-2 before:left-[7px] before:top-2 before:w-px before:bg-stone-200">
+            {prescriptionsByVisit.map(({ visit, prescriptions }) => (
+              <div key={visit.id} className="relative pl-8">
+                <span className="absolute left-0 top-1 flex h-4 w-4 items-center justify-center rounded-full bg-emerald-800">
+                  <Stethoscope className="h-2.5 w-2.5 text-white" />
+                </span>
+                <div className="rounded-lg border border-stone-200 p-3">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <p className="text-sm font-semibold">
+                      {new Date(visit.visited_at).toLocaleDateString("vi-VN", {
+                        day: "2-digit", month: "2-digit", year: "numeric",
+                        hour: "2-digit", minute: "2-digit",
+                      })}
+                    </p>
+                    <span className="text-xs text-stone-500">{visit.practitioner_name}</span>
+                  </div>
+                  {visit.final_diagnosis && (
+                    <p className="mt-1 text-sm text-stone-700">
+                      <span className="font-medium">Chẩn đoán:</span> {visit.final_diagnosis}
+                    </p>
+                  )}
+                  {canEdit && prescriptions.length === 0 && (
+                    <Link href={`/prescriptions/new?visitId=${visit.id}`}>
+                      <Button variant="link" size="sm" className="h-auto p-0 text-emerald-700">
+                        + Kê đơn cho lượt khám này
+                      </Button>
+                    </Link>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+
+  const prescriptionsTab = (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-base">Lịch sử đơn thuốc ({allPrescriptions.length})</CardTitle>
+      </CardHeader>
+      <CardContent>
+        {allPrescriptions.length === 0 ? (
+          <p className="py-4 text-center text-sm text-stone-500">Chưa có đơn thuốc nào.</p>
+        ) : (
+          <div className="space-y-2">
+            {allPrescriptions.map((pr) => (
+              <Link
+                key={pr.id}
+                href={`/prescriptions/${pr.id}`}
+                className="flex items-center gap-2 rounded-lg border border-stone-200 px-3 py-2.5 text-sm hover:bg-stone-50"
+              >
+                <FileText className="h-4 w-4 shrink-0 text-stone-400" />
+                <div className="min-w-0">
+                  <p className="font-medium">
+                    {pr.prescription_code}
+                    <span className="ml-2 font-normal text-stone-500">{pr.num_of_packs} thang</span>
+                  </p>
+                  <p className="truncate text-xs text-stone-500">
+                    {new Date(pr.visit.visited_at).toLocaleDateString("vi-VN")}
+                  </p>
+                </div>
+                <Badge className={`ml-auto shrink-0 ${STATUS_STYLE[pr.status]}`}>
+                  {STATUS_LABEL[pr.status]}
+                </Badge>
+              </Link>
+            ))}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
 
   return (
     <div className="space-y-4">
@@ -61,86 +164,13 @@ export default async function PatientDetailPage({
         </div>
       </div>
 
-      {/* Thông tin BN */}
-      <Card>
-        <CardContent className="grid gap-2 p-4 text-sm md:grid-cols-2">
-          <p><span className="font-medium">Ngày sinh:</span> {dob}</p>
-          <p><span className="font-medium">Giới tính:</span> {patient.sex ? SEX_LABEL[patient.sex] ?? patient.sex : "—"}</p>
-          <p><span className="font-medium">SĐT:</span> {patient.phone ?? "—"}</p>
-          <p><span className="font-medium">Địa chỉ:</span> {patient.address ?? "—"}</p>
-          {patient.medical_history && (
-            <p className="md:col-span-2"><span className="font-medium">Tiền sử:</span> {patient.medical_history}</p>
-          )}
-          {patient.allergies && (
-            <p className="md:col-span-2"><span className="font-medium text-red-700">Dị ứng:</span> {patient.allergies}</p>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Timeline điều trị */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">
-            Quá trình điều trị ({visits.length} lượt khám)
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          {visits.length === 0 ? (
-            <p className="py-4 text-center text-sm text-stone-500">Chưa có lượt khám nào.</p>
-          ) : (
-            <div className="relative space-y-4 before:absolute before:bottom-2 before:left-[7px] before:top-2 before:w-px before:bg-stone-200">
-              {prescriptionsByVisit.map(({ visit, prescriptions }) => (
-                <div key={visit.id} className="relative pl-8">
-                  <span className="absolute left-0 top-1 flex h-4 w-4 items-center justify-center rounded-full bg-emerald-800">
-                    <Stethoscope className="h-2.5 w-2.5 text-white" />
-                  </span>
-                  <div className="rounded-lg border border-stone-200 p-3">
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                      <p className="text-sm font-semibold">
-                        {new Date(visit.visited_at).toLocaleDateString("vi-VN", {
-                          day: "2-digit", month: "2-digit", year: "numeric",
-                          hour: "2-digit", minute: "2-digit",
-                        })}
-                      </p>
-                      <span className="text-xs text-stone-500">{visit.practitioner_name}</span>
-                    </div>
-                    {visit.final_diagnosis && (
-                      <p className="mt-1 text-sm text-stone-700">
-                        <span className="font-medium">Chẩn đoán:</span> {visit.final_diagnosis}
-                      </p>
-                    )}
-                    {prescriptions.length > 0 && (
-                      <div className="mt-2 space-y-1">
-                        {prescriptions.map((pr) => (
-                          <Link
-                            key={pr.id}
-                            href={`/prescriptions/${pr.id}`}
-                            className="flex items-center gap-2 rounded bg-stone-50 px-2 py-1.5 text-sm hover:bg-stone-100"
-                          >
-                            <FileText className="h-4 w-4 shrink-0 text-stone-400" />
-                            <span className="font-medium">{pr.prescription_code}</span>
-                            <span className="text-stone-500">· {pr.num_of_packs} thang</span>
-                            <Badge className={`ml-auto ${STATUS_STYLE[pr.status]}`}>
-                              {STATUS_LABEL[pr.status]}
-                            </Badge>
-                          </Link>
-                        ))}
-                      </div>
-                    )}
-                    {canEdit && (
-                      <Link href={`/prescriptions/new?visitId=${visit.id}`}>
-                        <Button variant="link" size="sm" className="h-auto p-0 text-emerald-700">
-                          + Kê đơn cho lượt khám này
-                        </Button>
-                      </Link>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+      <SimpleTabs
+        tabs={[
+          { id: "info", label: "Thông tin", content: infoTab },
+          { id: "visits", label: "Lượt khám", count: visits.length, content: visitsTab },
+          { id: "prescriptions", label: "Đơn thuốc", count: allPrescriptions.length, content: prescriptionsTab },
+        ]}
+      />
     </div>
   );
 }
