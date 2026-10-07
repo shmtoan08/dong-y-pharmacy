@@ -160,3 +160,37 @@ export async function toggleUserActive(id: string): Promise<void> {
     rowId: id,
   });
 }
+
+/** Admin đặt lại mật khẩu cho nhân viên (mật khẩu mới do admin nhập) */
+export async function resetUserPassword(
+  id: string,
+  newPassword: string,
+): Promise<ActionState> {
+  const admin = await requireAdmin();
+
+  if (newPassword.length < 6) {
+    return { error: "Mật khẩu mới phải có ít nhất 6 ký tự" };
+  }
+
+  const { rows } = await db.query(`SELECT id FROM users WHERE id = $1`, [id]);
+  if (rows.length === 0) return { error: "Không tìm thấy nhân viên" };
+
+  const passwordHash = await hashPassword(newPassword);
+  await db.query(`UPDATE users SET password_hash = $1 WHERE id = $2`, [
+    passwordHash,
+    id,
+  ]);
+
+  // Đổi mật khẩu → đá hết session của nhân viên đó (trừ khi là chính admin)
+  if (id !== admin.id) {
+    await revokeAllSessions(id);
+  }
+
+  await audit({
+    userId: admin.id,
+    action: "RESET_USER_PASSWORD",
+    tableName: "users",
+    rowId: id,
+  });
+  return { success: true };
+}
