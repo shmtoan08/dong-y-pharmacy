@@ -1,4 +1,4 @@
-import { NewInteractionForm } from "./NewInteractionForm";
+import { InteractionForm } from "../InteractionForm";
 import { searchHerbs } from "@/features/herbs/actions";
 
 export default async function NewInteractionPage() {
@@ -17,7 +17,7 @@ export default async function NewInteractionPage() {
           Cặp mới cần được thầy thuốc kiểm duyệt mới bật cảnh báo.
         </p>
       </div>
-      <NewInteractionForm herbs={simple} />
+      <InteractionForm herbs={simple} />
     </div>
   );
 }

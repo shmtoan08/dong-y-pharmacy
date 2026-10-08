@@ -832,6 +832,8 @@ export async function reprisePrescription(sourceId: string): Promise<{ newId?: s
 
 /* ==================== QUẢN LÝ TƯƠNG KỴ ==================== */
 
+import type { InteractionCategory } from "./interactionConstants";
+
 export interface InteractionRow {
   id: string;
   herb_a_id: string;
@@ -841,6 +843,10 @@ export interface InteractionRow {
   herb_b_name: string;
   herb_b_code: string;
   severity: "cam_ky" | "can_trong";
+  category: InteractionCategory;
+  contraindicated_for: string[];
+  symptoms: string | null;
+  antidote: string | null;
   description: string | null;
   source: string | null;
   verified: boolean;
@@ -852,6 +858,7 @@ export interface InteractionRow {
 export async function listInteractions(filter?: {
   q?: string;
   severity?: string;
+  category?: string;
   verified?: string;
 }): Promise<InteractionRow[]> {
   await requireRole("admin", "practitioner", "dispenser");
@@ -865,11 +872,17 @@ export async function listInteractions(filter?: {
     params.push(filter.severity);
     conds.push(`ix.severity = $${params.length}`);
   }
+  if (filter?.category) {
+    params.push(filter.category);
+    conds.push(`ix.category = $${params.length}`);
+  }
   if (filter?.verified === "yes") conds.push(`ix.verified = TRUE`);
   if (filter?.verified === "no") conds.push(`ix.verified = FALSE`);
   const where = conds.length > 0 ? `WHERE ${conds.join(" AND ")}` : "";
   const { rows } = await db.query(
-    `SELECT ix.id, ix.herb_a_id, ix.herb_b_id, ix.severity, ix.description, ix.source,
+    `SELECT ix.id, ix.herb_a_id, ix.herb_b_id, ix.severity, ix.category,
+            ix.contraindicated_for, ix.symptoms, ix.antidote,
+            ix.description, ix.source,
             ix.verified, ix.verified_at, ix.created_at,
             ha.name_common AS herb_a_name, ha.code AS herb_a_code,
             hb.name_common AS herb_b_name, hb.code AS herb_b_code,
@@ -885,22 +898,34 @@ export async function listInteractions(filter?: {
   return rows as InteractionRow[];
 }
 
+export interface InteractionInput {
+  herbAId: string;
+  herbBId: string;
+  severity: "cam_ky" | "can_trong";
+  category: InteractionCategory;
+  contraindicatedFor: string[];
+  symptoms?: string;
+  antidote?: string;
+  description?: string;
+  source?: string;
+}
+
 export async function createInteraction(
-  herbAId: string,
-  herbBId: string,
-  severity: "cam_ky" | "can_trong",
-  description?: string,
-  source?: string,
+  input: InteractionInput,
 ): Promise<{ id?: string; error?: string }> {
   const user = await requireRole("admin", "practitioner");
-  if (herbAId === herbBId) return { error: "Hai vị thuốc phải khác nhau." };
-  const a = herbAId < herbBId ? herbAId : herbBId;
-  const b = herbAId < herbBId ? herbBId : herbAId;
+  if (input.herbAId === input.herbBId) return { error: "Hai vị thuốc phải khác nhau." };
+  const a = input.herbAId < input.herbBId ? input.herbAId : input.herbBId;
+  const b = input.herbAId < input.herbBId ? input.herbBId : input.herbAId;
   try {
     const { rows } = await db.query<{ id: string }>(
-      `INSERT INTO herb_interactions (herb_a_id, herb_b_id, severity, description, source, created_by)
-       VALUES ($1, $2, $3, $4, $5, $6) RETURNING id`,
-      [a, b, severity, description?.trim() || null, source?.trim() || null, user.id],
+      `INSERT INTO herb_interactions
+         (herb_a_id, herb_b_id, severity, category, contraindicated_for, symptoms, antidote,
+          description, source, created_by)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING id`,
+      [a, b, input.severity, input.category, input.contraindicatedFor,
+       input.symptoms?.trim() || null, input.antidote?.trim() || null,
+       input.description?.trim() || null, input.source?.trim() || null, user.id],
     );
     return { id: rows[0].id };
   } catch (e) {
@@ -910,6 +935,43 @@ export async function createInteraction(
     console.error("[createInteraction] failed:", e);
     return { error: "Tạo thất bại." };
   }
+}
+
+export async function getInteraction(id: string): Promise<InteractionRow | null> {
+  await requireRole("admin", "practitioner", "dispenser");
+  const rows = await listInteractions();
+  return rows.find((r) => r.id === id) ?? null;
+}
+
+export async function updateInteraction(
+  id: string,
+  input: InteractionInput,
+): Promise<{ error?: string }> {
+  const user = await requireRole("admin", "practitioner");
+  if (input.herbAId === input.herbBId) return { error: "Hai vị thuốc phải khác nhau." };
+  const a = input.herbAId < input.herbBId ? input.herbAId : input.herbBId;
+  const b = input.herbAId < input.herbBId ? input.herbBId : input.herbAId;
+  try {
+    await db.query(
+      `UPDATE herb_interactions SET
+         herb_a_id = $1, herb_b_id = $2, severity = $3, category = $4,
+         contraindicated_for = $5, symptoms = $6, antidote = $7,
+         description = $8, source = $9,
+         verified = FALSE, verified_by = NULL, verified_at = NULL
+       WHERE id = $10`,
+      [a, b, input.severity, input.category, input.contraindicatedFor,
+       input.symptoms?.trim() || null, input.antidote?.trim() || null,
+       input.description?.trim() || null, input.source?.trim() || null, id],
+    );
+  } catch (e) {
+    if (e instanceof Error && e.message.includes("uq_interaction_pair")) {
+      return { error: "Cặp tương kỵ này đã tồn tại." };
+    }
+    console.error("[updateInteraction] failed:", e);
+    return { error: "Cập nhật thất bại." };
+  }
+  await audit({ userId: user.id, action: "INTERACTION_UPDATE", tableName: "herb_interactions", rowId: id });
+  return {};
 }
 
 export async function verifyInteraction(id: string): Promise<{ error?: string }> {
