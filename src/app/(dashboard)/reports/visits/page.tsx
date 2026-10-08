@@ -5,6 +5,7 @@ import { getVisitKpi, getVisitTrend, getPeriodVisits } from "@/features/reports/
 import { ReportFilterBar } from "../ReportFilterBar";
 import { VisitChart } from "../ReportCharts";
 import { ReportExportButton } from "../ReportExportButton";
+import { PaginatedTable } from "../PaginatedTable";
 
 async function exportVisitData(from?: string, to?: string) {
   "use server";
@@ -91,33 +92,28 @@ export default async function VisitsReportPage({
           <CardTitle className="text-base">Chi tiết lượt khám trong kỳ ({visits.length})</CardTitle>
         </CardHeader>
         <CardContent className="p-0">
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-stone-200 bg-stone-50 text-left">
-                  <th className="whitespace-nowrap px-4 py-2.5 font-medium text-stone-600">Ngày khám</th>
-                  <th className="px-4 py-2.5 font-medium text-stone-600">Bệnh nhân</th>
-                  <th className="px-4 py-2.5 font-medium text-stone-600">Bác sĩ khám</th>
-                  <th className="px-4 py-2.5 font-medium text-stone-600">Chẩn đoán</th>
-                </tr>
-              </thead>
-              <tbody>
-                {visits.map((v, i) => (
-                  <tr key={i} className="border-b border-stone-100 hover:bg-stone-50">
-                    <td className="whitespace-nowrap px-4 py-2.5 text-stone-600">
-                      {new Date(v.visited_at).toLocaleDateString("vi-VN")}
-                    </td>
-                    <td className="px-4 py-2.5 font-medium">{v.patient_name}</td>
-                    <td className="px-4 py-2.5">{v.practitioner_name ?? "—"}</td>
-                    <td className="max-w-xs truncate px-4 py-2.5 text-stone-600">{v.diagnosis ?? "—"}</td>
-                  </tr>
-                ))}
-                {visits.length === 0 && (
-                  <tr><td colSpan={4} className="px-4 py-8 text-center text-sm text-stone-500">Chưa có lượt khám nào.</td></tr>
-                )}
-              </tbody>
-            </table>
-          </div>
+          <PaginatedTable
+            rows={visits}
+            emptyText="Chưa có lượt khám nào."
+            renderHeader={() => (
+              <>
+                <th className="whitespace-nowrap px-4 py-2.5 font-medium text-stone-600">Ngày khám</th>
+                <th className="px-4 py-2.5 font-medium text-stone-600">Bệnh nhân</th>
+                <th className="px-4 py-2.5 font-medium text-stone-600">Bác sĩ khám</th>
+                <th className="px-4 py-2.5 font-medium text-stone-600">Chẩn đoán</th>
+              </>
+            )}
+            renderRow={(v, i) => (
+              <tr key={i} className="border-b border-stone-100 hover:bg-stone-50">
+                <td className="whitespace-nowrap px-4 py-2.5 text-stone-600">
+                  {new Date(v.visited_at).toLocaleDateString("vi-VN")}
+                </td>
+                <td className="px-4 py-2.5 font-medium">{v.patient_name}</td>
+                <td className="px-4 py-2.5">{v.practitioner_name ?? "—"}</td>
+                <td className="max-w-xs truncate px-4 py-2.5 text-stone-600">{v.diagnosis ?? "—"}</td>
+              </tr>
+            )}
+          />
         </CardContent>
       </Card>
     </div>

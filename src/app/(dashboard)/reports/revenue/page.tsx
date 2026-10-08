@@ -6,6 +6,7 @@ import { getRevenueKpi, getRevenueTrend, getPeriodInvoices } from "@/features/re
 import { ReportFilterBar } from "../ReportFilterBar";
 import { RevenueChart } from "../ReportCharts";
 import { ReportExportButton } from "../ReportExportButton";
+import { PaginatedTable } from "../PaginatedTable";
 
 const STATUS_LABEL: Record<string, string> = {
   unpaid: "Chưa thu",
@@ -108,39 +109,34 @@ export default async function RevenueReportPage({
           <CardTitle className="text-base">Chi tiết hóa đơn trong kỳ ({invoices.length})</CardTitle>
         </CardHeader>
         <CardContent className="p-0">
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-stone-200 bg-stone-50 text-left">
-                  <th className="whitespace-nowrap px-4 py-2.5 font-medium text-stone-600">Mã HĐ</th>
-                  <th className="px-4 py-2.5 font-medium text-stone-600">Bệnh nhân</th>
-                  <th className="whitespace-nowrap px-4 py-2.5 font-medium text-stone-600">Ngày lập</th>
-                  <th className="px-4 py-2.5 text-right font-medium text-stone-600">Tổng tiền</th>
-                  <th className="px-4 py-2.5 text-right font-medium text-stone-600">Đã thu</th>
-                  <th className="px-4 py-2.5 font-medium text-stone-600">Trạng thái</th>
-                </tr>
-              </thead>
-              <tbody>
-                {invoices.map((r) => (
-                  <tr key={r.invoice_code} className="border-b border-stone-100 hover:bg-stone-50">
-                    <td className="whitespace-nowrap px-4 py-2.5 font-mono text-xs">{r.invoice_code}</td>
-                    <td className="px-4 py-2.5">{r.patient_name}</td>
-                    <td className="whitespace-nowrap px-4 py-2.5 text-stone-600">
-                      {new Date(r.created_at).toLocaleDateString("vi-VN")}
-                    </td>
-                    <td className="whitespace-nowrap px-4 py-2.5 text-right font-medium">{fmt(r.total)}</td>
-                    <td className="whitespace-nowrap px-4 py-2.5 text-right text-emerald-700">{fmt(r.paid_total)}</td>
-                    <td className="px-4 py-2.5">
-                      <Badge variant="outline">{STATUS_LABEL[r.status] ?? r.status}</Badge>
-                    </td>
-                  </tr>
-                ))}
-                {invoices.length === 0 && (
-                  <tr><td colSpan={6} className="px-4 py-8 text-center text-sm text-stone-500">Chưa có hóa đơn nào.</td></tr>
-                )}
-              </tbody>
-            </table>
-          </div>
+          <PaginatedTable
+            rows={invoices}
+            emptyText="Chưa có hóa đơn nào."
+            renderHeader={() => (
+              <>
+                <th className="whitespace-nowrap px-4 py-2.5 font-medium text-stone-600">Mã HĐ</th>
+                <th className="px-4 py-2.5 font-medium text-stone-600">Bệnh nhân</th>
+                <th className="whitespace-nowrap px-4 py-2.5 font-medium text-stone-600">Ngày lập</th>
+                <th className="px-4 py-2.5 text-right font-medium text-stone-600">Tổng tiền</th>
+                <th className="px-4 py-2.5 text-right font-medium text-stone-600">Đã thu</th>
+                <th className="px-4 py-2.5 font-medium text-stone-600">Trạng thái</th>
+              </>
+            )}
+            renderRow={(r) => (
+              <tr key={r.invoice_code} className="border-b border-stone-100 hover:bg-stone-50">
+                <td className="whitespace-nowrap px-4 py-2.5 font-mono text-xs">{r.invoice_code}</td>
+                <td className="px-4 py-2.5">{r.patient_name}</td>
+                <td className="whitespace-nowrap px-4 py-2.5 text-stone-600">
+                  {new Date(r.created_at).toLocaleDateString("vi-VN")}
+                </td>
+                <td className="whitespace-nowrap px-4 py-2.5 text-right font-medium">{fmt(r.total)}</td>
+                <td className="whitespace-nowrap px-4 py-2.5 text-right text-emerald-700">{fmt(r.paid_total)}</td>
+                <td className="px-4 py-2.5">
+                  <Badge variant="outline">{STATUS_LABEL[r.status] ?? r.status}</Badge>
+                </td>
+              </tr>
+            )}
+          />
         </CardContent>
       </Card>
     </div>
