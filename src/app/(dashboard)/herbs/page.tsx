@@ -116,11 +116,11 @@ export default async function HerbsPage({
     i++;
   }
   if (stockFilter === "out") {
-    where.push(`h.stock_quantity <= 0`);
+    where.push(`COALESCE((SELECT SUM(l.quantity_current) FROM stock_lots l WHERE l.herb_id = h.id), 0) <= 0`);
   } else if (stockFilter === "low") {
-    where.push(`h.stock_quantity > 0 AND h.stock_quantity <= h.min_stock_quantity`);
+    where.push(`COALESCE((SELECT SUM(l.quantity_current) FROM stock_lots l WHERE l.herb_id = h.id), 0) BETWEEN 1 AND h.min_stock_quantity`);
   } else if (stockFilter === "available") {
-    where.push(`h.stock_quantity > h.min_stock_quantity`);
+    where.push(`COALESCE((SELECT SUM(l.quantity_current) FROM stock_lots l WHERE l.herb_id = h.id), 0) > h.min_stock_quantity`);
   }
   const whereSql = where.length ? `WHERE ${where.join(" AND ")}` : "";
 
@@ -136,7 +136,7 @@ export default async function HerbsPage({
   const { rows } = await db.query<HerbRow>(
     `SELECT h.id, h.code, h.name_common, h.name_han_viet, h.name_science,
             h.property_tinh, h.property_vi, h.quy_kinh, h.base_unit,
-            h.price_per_unit, h.stock_quantity, h.min_stock_quantity, h.is_active
+            h.price_per_unit, COALESCE((SELECT SUM(l.quantity_current) FROM stock_lots l WHERE l.herb_id = h.id), 0) AS stock_quantity, h.min_stock_quantity, h.is_active
      FROM herbs h
      ${whereSql}
      ORDER BY h.code

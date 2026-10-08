@@ -248,18 +248,155 @@ export async function confirmPrescription(id: string): Promise<ActionState> {
   return {};
 }
 
-/** Dispenser/admin/practitioner đánh dấu đã bốc thuốc (chỉ từ confirmed) */
+export interface FefoPreviewItem {
+  herb_name: string;
+  needed: number;
+  available: number;
+  shortage: number;
+  lots: { lot_code: string; take: number; expiry_date: string | null }[];
+}
+
+/**
+ * Preview FEFO cho dialog xác nhận bốc thuốc (read-only, không lock).
+ */
+export async function previewDispense(id: string): Promise<FefoPreviewItem[]> {
+  await requireRole("admin", "practitioner", "dispenser");
+  const { rows: rx } = await db.query<{ num_of_packs: number }>(
+    `SELECT num_of_packs FROM prescriptions WHERE id = $1`,
+    [id],
+  );
+  if (rx.length === 0) return [];
+  const numPacks = Number(rx[0].num_of_packs) || 1;
+
+  const { rows: items } = await db.query<{
+    herb_id: string; herb_name: string; weight_per_pack: number;
+  }>(
+    `SELECT herb_id, herb_name, weight_per_pack FROM prescription_items
+     WHERE prescription_id = $1 AND herb_id IS NOT NULL`,
+    [id],
+  );
+
+  const out: FefoPreviewItem[] = [];
+  for (const it of items) {
+    const needed = Number(it.weight_per_pack) * numPacks;
+    const { rows: lots } = await db.query<{
+      lot_code: string; quantity_current: number; expiry_date: string | null;
+    }>(
+      `SELECT lot_code, quantity_current, expiry_date FROM stock_lots
+       WHERE herb_id = $1 AND quantity_current > 0
+         AND (expiry_date IS NULL OR expiry_date >= CURRENT_DATE)
+       ORDER BY expiry_date NULLS LAST, created_at ASC, id ASC`,
+      [it.herb_id],
+    );
+    let rest = needed;
+    const take: FefoPreviewItem["lots"] = [];
+    for (const l of lots) {
+      if (rest <= 0) break;
+      const t = Math.min(Number(l.quantity_current), rest);
+      take.push({ lot_code: l.lot_code, take: t, expiry_date: l.expiry_date });
+      rest -= t;
+    }
+    const available = needed - rest;
+    out.push({
+      herb_name: it.herb_name,
+      needed,
+      available,
+      shortage: Math.max(0, rest),
+      lots: take,
+    });
+  }
+  return out;
+}
+
+/**
+ * Bốc thuốc + trừ kho FEFO trong 1 transaction.
+ * - Lock đơn trước, check status = confirmed (idempotent).
+ * - Lock tất cả lot liên quan (FOR UPDATE) trước khi tính FEFO.
+ * - Lô hết hạn không tham gia FEFO.
+ * - Thiếu hàng → rollback toàn bộ.
+ */
 export async function completePrescription(id: string): Promise<ActionState> {
   const user = await requireRole("admin", "practitioner", "dispenser");
 
-  const { rowCount } = await db.query(
-    `UPDATE prescriptions
-     SET status = 'completed', completed_by = $1, completed_at = NOW()
-     WHERE id = $2 AND status = 'confirmed'`,
-    [user.id, id],
-  );
-  if (rowCount === 0) {
-    return { error: "Chỉ đơn đã chốt mới đánh dấu bốc thuốc được." };
+  try {
+    await withTransaction(async (tx) => {
+      // 1. Lock đơn + check idempotent
+      const { rows: rx } = await tx.query<{ num_of_packs: number }>(
+        `SELECT num_of_packs FROM prescriptions WHERE id = $1 AND status = 'confirmed' FOR UPDATE`,
+        [id],
+      );
+      if (rx.length === 0) throw new Error("NOT_CONFIRMED");
+      const numPacks = Number(rx[0].num_of_packs) || 1;
+
+      // 2. Lấy các dòng có herb_id
+      const { rows: items } = await tx.query<{
+        herb_id: string; herb_name: string; weight_per_pack: number;
+      }>(
+        `SELECT herb_id, herb_name, weight_per_pack FROM prescription_items
+         WHERE prescription_id = $1 AND herb_id IS NOT NULL`,
+        [id],
+      );
+
+      for (const it of items) {
+        const needed = Number(it.weight_per_pack) * numPacks;
+        if (needed <= 0) continue;
+
+        // 3. Lock các lot (FEFO order, loại lô hết hạn)
+        const { rows: lots } = await tx.query<{ id: string; quantity_current: number }>(
+          `SELECT id, quantity_current FROM stock_lots
+           WHERE herb_id = $1 AND quantity_current > 0
+             AND (expiry_date IS NULL OR expiry_date >= CURRENT_DATE)
+           ORDER BY expiry_date NULLS LAST, created_at ASC, id ASC
+           FOR UPDATE`,
+          [it.herb_id],
+        );
+
+        // 4. Tính FEFO
+        let rest = needed;
+        const plan: { lotId: string; take: number }[] = [];
+        for (const l of lots) {
+          if (rest <= 0) break;
+          const t = Math.min(Number(l.quantity_current), rest);
+          plan.push({ lotId: l.id, take: t });
+          rest -= t;
+        }
+        if (rest > 0.0001) {
+          throw new Error(`SHORTAGE:${it.herb_name}:${rest.toFixed(2)}`);
+        }
+
+        // 5. Trừ kho + ghi movement
+        for (const p of plan) {
+          await tx.query(
+            `UPDATE stock_lots SET quantity_current = quantity_current - $1 WHERE id = $2`,
+            [p.take, p.lotId],
+          );
+          await tx.query(
+            `INSERT INTO stock_lot_movements (lot_id, quantity_change, reason, reference_type, reference_id, created_by)
+             VALUES ($1, $2, 'Xuat thuoc', 'PRESCRIPTION', $3, $4)`,
+            [p.lotId, -p.take, id, user.id],
+          );
+        }
+      }
+
+      // 6. Đơn → completed
+      await tx.query(
+        `UPDATE prescriptions
+         SET status = 'completed', completed_by = $1, completed_at = NOW()
+         WHERE id = $2`,
+        [user.id, id],
+      );
+    });
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "";
+    if (msg === "NOT_CONFIRMED") {
+      return { error: "Chỉ đơn đã chốt mới bốc thuốc được." };
+    }
+    if (msg.startsWith("SHORTAGE:")) {
+      const [, name, shortage] = msg.split(":");
+      return { error: `Không đủ tồn kho: ${name} thiếu ${shortage}.` };
+    }
+    console.error("[completePrescription] failed:", e);
+    return { error: "Bốc thuốc thất bại, vui lòng thử lại." };
   }
 
   await audit({

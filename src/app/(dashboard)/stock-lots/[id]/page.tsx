@@ -1,7 +1,8 @@
 import { BackButton } from "@/components/shared/BackButton";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { getLotDetail, getLotHistory } from "@/features/inventory/actions";
+import { getLotDetail, getLotMovements } from "@/features/inventory/actions";
+import { LotBarcode } from "./LotBarcode";
 import { getSessionUser } from "@/lib/auth";
 import { LotActions } from "./LotActions";
 import { notFound } from "next/navigation";
@@ -17,21 +18,16 @@ function Field({ label, value, mono }: { label: string; value: string | null; mo
   );
 }
 
-const ACTION_LABEL: Record<string, string> = {
-  "lot.adjust": "Điều chỉnh tồn kho",
-  "lot.discard": "Hủy / thanh lý lô",
-};
-
 export default async function LotDetailPage({
   params,
 }: {
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const [lot, user, history] = await Promise.all([
+  const [lot, user, movements] = await Promise.all([
     getLotDetail(id),
     getSessionUser(),
-    getLotHistory(id),
+    getLotMovements(id),
   ]);
   if (!lot || !user) notFound();
 
@@ -112,31 +108,39 @@ export default async function LotDetailPage({
 
       <Card>
         <CardHeader className="pb-3">
+          <CardTitle className="text-base">Mã vạch lô</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <LotBarcode code={lot.lot_code} />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="pb-3">
           <CardTitle className="text-base">
-            Lịch sử biến động ({history.length})
+            Lịch sử xuất-nhập ({movements.length})
           </CardTitle>
         </CardHeader>
         <CardContent>
-          {history.length === 0 ? (
+          {movements.length === 0 ? (
             <p className="py-4 text-center text-sm text-stone-500">
               Chưa có biến động nào được ghi nhận.
             </p>
           ) : (
             <div className="space-y-2">
-              {history.map((h, idx) => (
+              {movements.map((m, idx) => (
                 <div key={idx} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-stone-100 px-3 py-2 text-sm">
                   <div>
-                    <p className="font-medium">{ACTION_LABEL[h.action] ?? h.action}</p>
+                    <p className="font-medium">{m.reason}</p>
                     <p className="text-xs text-stone-500">
-                      {h.user_name ?? "Hệ thống"} ·{" "}
-                      {new Date(h.created_at).toLocaleString("vi-VN")}
+                      {m.user_name ?? "Hệ thống"} ·{" "}
+                      {new Date(m.created_at).toLocaleString("vi-VN")}
                     </p>
                   </div>
-                  {h.new_value != null && (
-                    <p className="text-xs text-stone-500">
-                      {typeof h.new_value === "object" ? JSON.stringify(h.new_value) : String(h.new_value)}
-                    </p>
-                  )}
+                  <span className={`font-mono font-medium ${Number(m.quantity_change) > 0 ? "text-emerald-700" : "text-red-700"}`}>
+                    {Number(m.quantity_change) > 0 ? "+" : ""}
+                    {Number(m.quantity_change).toLocaleString("vi-VN")}
+                  </span>
                 </div>
               ))}
             </div>

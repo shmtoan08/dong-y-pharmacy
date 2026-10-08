@@ -52,6 +52,7 @@ const MENU: MenuItem[] = [
   { href: "/suppliers", label: "Nhà cung cấp", icon: Truck, roles: ["admin", "practitioner", "dispenser"], section: "Kho dược liệu" },
   { href: "/stock-receipts", label: "Phiếu nhập kho", icon: Package, roles: ["admin", "practitioner", "dispenser"], section: "Kho dược liệu" },
   { href: "/stock-lots", label: "Quản lý lô hàng", icon: ClipboardCheck, roles: ["admin", "practitioner", "dispenser"], section: "Kho dược liệu" },
+  { href: "/stock-checks", label: "Kiểm kho", icon: ClipboardCheck, roles: ["admin", "practitioner", "dispenser"], section: "Kho dược liệu" },
   // Tài chính
   { href: "/finance/invoices", label: "Hóa đơn & Thanh toán", icon: Receipt, roles: ["admin"], section: "Tài chính"  },
   { href: "/finance/ledger", label: "Sổ quỹ & Công nợ", icon: Wallet, roles: ["admin"], section: "Tài chính" },

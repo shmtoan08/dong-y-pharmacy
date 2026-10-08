@@ -219,6 +219,11 @@ export async function confirmReceipt(id: string): Promise<{ error?: string }> {
            VALUES ($1, $2, $3, $4, $5, $5, $6, $7) RETURNING id`,
           [lotCode, it.herb_id, supplierId, id, it.quantity, it.expiry_date, it.supplier_lot_code ?? null],
         );
+      await tx.query(
+        `INSERT INTO stock_lot_movements (lot_id, quantity_change, reason, reference_type, reference_id, created_by)
+         VALUES ($1, $2, 'Nhap kho', 'STOCK_RECEIPT', $3, $4)`,
+        [lotRows[0].id, it.quantity, id, user.id],
+      );
         await tx.query(
           `UPDATE stock_receipt_items SET lot_id = $1 WHERE id = $2`,
           [lotRows[0].id, it.id],
@@ -356,10 +361,13 @@ export async function adjustLot(
         newQuantity,
         lotId,
       ]);
-      await tx.query(
-        `UPDATE herbs SET stock_quantity = stock_quantity + $1 WHERE id = $2`,
-        [diff, rows[0].herb_id],
-      );
+      if (diff !== 0) {
+        await tx.query(
+          `INSERT INTO stock_lot_movements (lot_id, quantity_change, reason, reference_type, created_by)
+           VALUES ($1, $2, $3, 'ADJUST', $4)`,
+          [lotId, diff, reason, user.id],
+        );
+      }
     });
   } catch (e) {
     console.error("[adjustLot] failed:", e);
@@ -393,8 +401,9 @@ export async function discardLot(
       if (qty > 0) {
         await tx.query(`UPDATE stock_lots SET quantity_current = 0 WHERE id = $1`, [lotId]);
         await tx.query(
-          `UPDATE herbs SET stock_quantity = stock_quantity - $1 WHERE id = $2`,
-          [qty, rows[0].herb_id],
+          `INSERT INTO stock_lot_movements (lot_id, quantity_change, reason, reference_type, created_by)
+           VALUES ($1, $2, $3, 'DESTROY', $4)`,
+          [lotId, -qty, reason, user.id],
         );
       }
     });
@@ -425,6 +434,255 @@ export async function getLotHistory(lotId: string): Promise<
      LEFT JOIN users u ON u.id = a.user_id
      WHERE a.table_name = 'stock_lots' AND a.row_id = $1
      ORDER BY a.created_at DESC`,
+    [lotId],
+  );
+  return rows;
+}
+
+/* ==================== KIỂM KHO ==================== */
+
+export interface StockCheckRow {
+  id: string;
+  check_code: string;
+  status: string;
+  note: string | null;
+  created_by_name: string | null;
+  confirmed_by_name: string | null;
+  confirmed_at: string | null;
+  created_at: string;
+  item_count: number;
+}
+
+export async function listStockChecks(): Promise<StockCheckRow[]> {
+  await requireRole("admin", "practitioner", "dispenser");
+  const { rows } = await db.query(
+    `SELECT c.id, c.check_code, c.status, c.note, c.created_at, c.confirmed_at,
+            u1.full_name AS created_by_name, u2.full_name AS confirmed_by_name,
+            (SELECT COUNT(*) FROM stock_check_items i WHERE i.check_id = c.id) AS item_count
+     FROM stock_checks c
+     LEFT JOIN users u1 ON u1.id = c.created_by
+     LEFT JOIN users u2 ON u2.id = c.confirmed_by
+     ORDER BY c.created_at DESC`,
+  );
+  return rows as StockCheckRow[];
+}
+
+export interface StockCheckItemRow {
+  id: string;
+  lot_id: string;
+  lot_code: string;
+  herb_name: string;
+  system_qty: number;
+  actual_qty: number | null;
+}
+
+export async function getStockCheck(id: string): Promise<{
+  check: StockCheckRow;
+  items: StockCheckItemRow[];
+} | null> {
+  await requireRole("admin", "practitioner", "dispenser");
+  const checks = await listStockChecks();
+  const check = checks.find((c) => c.id === id);
+  if (!check) return null;
+  const { rows } = await db.query(
+    `SELECT i.id, i.lot_id, l.lot_code, h.name_common AS herb_name,
+            i.system_qty, i.actual_qty
+     FROM stock_check_items i
+     JOIN stock_lots l ON l.id = i.lot_id
+     JOIN herbs h ON h.id = l.herb_id
+     WHERE i.check_id = $1
+     ORDER BY h.name_common`,
+    [id],
+  );
+  return { check, items: rows as StockCheckItemRow[] };
+}
+
+/**
+ * Tạo phiếu kiểm kho: snapshot tồn hiện tại của các lô được chọn
+ * (hoặc tất cả lô còn hàng nếu không chọn).
+ */
+export async function createStockCheck(
+  lotIds: string[],
+  note?: string,
+): Promise<{ id?: string; error?: string }> {
+  const user = await requireRole("admin", "practitioner", "dispenser");
+  try {
+    let checkId = "";
+    await withTransaction(async (tx) => {
+      const { rows: seqRows } = await tx.query<{ n: number }>(
+        `SELECT next_daily_n('check') AS n`
+      );
+      const ymd = new Date().toISOString().slice(0, 10).replace(/-/g, "");
+      const code = `KK-${ymd}-${String(seqRows[0].n).padStart(3, "0")}`;
+      const { rows } = await tx.query<{ id: string }>(
+        `INSERT INTO stock_checks (check_code, note, created_by)
+         VALUES ($1, $2, $3) RETURNING id`,
+        [code, note?.trim() || null, user.id],
+      );
+      checkId = rows[0].id;
+
+      const lots =
+        lotIds.length > 0
+          ? (
+              await tx.query<{ id: string; quantity_current: number }>(
+                `SELECT id, quantity_current FROM stock_lots WHERE id = ANY($1)`,
+                [lotIds],
+              )
+            ).rows
+          : (
+              await tx.query<{ id: string; quantity_current: number }>(
+                `SELECT id, quantity_current FROM stock_lots WHERE quantity_current > 0`,
+              )
+            ).rows;
+
+      for (const l of lots) {
+        await tx.query(
+          `INSERT INTO stock_check_items (check_id, lot_id, system_qty)
+           VALUES ($1, $2, $3)`,
+          [checkId, l.id, l.quantity_current],
+        );
+      }
+    });
+    return { id: checkId };
+  } catch (e) {
+    console.error("[createStockCheck] failed:", e);
+    return { error: "Tạo phiếu kiểm kho thất bại." };
+  }
+}
+
+/** Nhập số lượng thực tế cho 1 dòng kiểm kê */
+export async function setCheckActual(
+  itemId: string,
+  actualQty: number,
+): Promise<{ error?: string }> {
+  await requireRole("admin", "practitioner", "dispenser");
+  if (actualQty < 0) return { error: "Số lượng không được âm" };
+  const { rowCount } = await db.query(
+    `UPDATE stock_check_items i SET actual_qty = $1
+     FROM stock_checks c
+     WHERE i.id = $2 AND i.check_id = c.id AND c.status = 'draft'`,
+    [actualQty, itemId],
+  );
+  if (rowCount === 0) return { error: "Phiếu đã xác nhận, không sửa được." };
+  return {};
+}
+
+/**
+ * Xác nhận kiểm kho — chống race theo review:
+ * lock phiếu + lock tất cả lot, đọc lại tồn hiện tại;
+ * nếu khác snapshot → từ chối (stale), không merge mù quáng.
+ */
+export async function confirmStockCheck(checkId: string): Promise<{ error?: string }> {
+  const user = await requireRole("admin", "practitioner");
+  try {
+    await withTransaction(async (tx) => {
+      // 1. Lock phiếu
+      const { rows: chk } = await tx.query<{ status: string; check_code: string }>(
+        `SELECT status, check_code FROM stock_checks WHERE id = $1 FOR UPDATE`,
+        [checkId],
+      );
+      if (chk.length === 0) throw new Error("NOT_FOUND");
+      if (chk[0].status !== "draft") throw new Error("NOT_DRAFT");
+
+      // 2. Lock tất cả lot trong phiếu + đọc tồn hiện tại
+      const { rows: items } = await tx.query<{
+        id: string; lot_id: string; system_qty: number; actual_qty: number | null;
+        current_qty: number;
+      }>(
+        `SELECT i.id, i.lot_id, i.system_qty, i.actual_qty, l.quantity_current AS current_qty
+         FROM stock_check_items i
+         JOIN stock_lots l ON l.id = i.lot_id
+         WHERE i.check_id = $1 FOR UPDATE OF l`,
+        [checkId],
+      );
+
+      // 3. Kiểm tra stale
+      const stale = items.filter(
+        (it) => Number(it.current_qty) !== Number(it.system_qty),
+      );
+      if (stale.length > 0) {
+        throw new Error(`STALE:${stale.length}`);
+      }
+
+      // 4. Áp dụng chênh lệch
+      for (const it of items) {
+        if (it.actual_qty === null) continue;
+        const diff = Number(it.actual_qty) - Number(it.system_qty);
+        if (diff === 0) continue;
+        await tx.query(
+          `UPDATE stock_lots SET quantity_current = $1 WHERE id = $2`,
+          [it.actual_qty, it.lot_id],
+        );
+        await tx.query(
+          `INSERT INTO stock_lot_movements (lot_id, quantity_change, reason, reference_type, reference_id, created_by)
+           VALUES ($1, $2, 'Kiem ke ' || $3, 'STOCK_CHECK', $4, $5)`,
+          [it.lot_id, diff, chk[0].check_code, checkId, user.id],
+        );
+      }
+
+      await tx.query(
+        `UPDATE stock_checks SET status = 'confirmed', confirmed_by = $1, confirmed_at = NOW()
+         WHERE id = $2`,
+        [user.id, checkId],
+      );
+    });
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "";
+    if (msg === "NOT_FOUND") return { error: "Không tìm thấy phiếu." };
+    if (msg === "NOT_DRAFT") return { error: "Phiếu đã được xử lý." };
+    if (msg.startsWith("STALE:")) {
+      const n = msg.split(":")[1];
+      return {
+        error: `Kho đã thay đổi sau khi lập phiếu (${n} lô). Vui lòng tạo phiếu mới để kiểm lại.`,
+      };
+    }
+    console.error("[confirmStockCheck] failed:", e);
+    return { error: "Xác nhận thất bại, vui lòng thử lại." };
+  }
+  await audit({
+    userId: user.id,
+    action: "stock_check.confirm",
+    tableName: "stock_checks",
+    rowId: checkId,
+  });
+  return {};
+}
+
+/** Hủy phiếu kiểm kho (chỉ khi draft) */
+export async function cancelStockCheck(checkId: string): Promise<{ error?: string }> {
+  await requireRole("admin", "practitioner");
+  const { rowCount } = await db.query(
+    `UPDATE stock_checks SET status = 'cancelled' WHERE id = $1 AND status = 'draft'`,
+    [checkId],
+  );
+  if (rowCount === 0) return { error: "Không thể hủy phiếu ở trạng thái này." };
+  return {};
+}
+
+/** Lịch sử xuất-nhập của lô từ movements */
+export async function getLotMovements(lotId: string): Promise<
+  {
+    quantity_change: number;
+    reason: string;
+    reference_type: string | null;
+    created_at: string;
+    user_name: string | null;
+  }[]
+> {
+  await requireRole("admin", "practitioner", "dispenser");
+  const { rows } = await db.query<{
+    quantity_change: number;
+    reason: string;
+    reference_type: string | null;
+    created_at: string;
+    user_name: string | null;
+  }>(
+    `SELECT m.quantity_change, m.reason, m.reference_type, m.created_at,
+            u.full_name AS user_name
+     FROM stock_lot_movements m
+     LEFT JOIN users u ON u.id = m.created_by
+     WHERE m.lot_id = $1
+     ORDER BY m.created_at DESC`,
     [lotId],
   );
   return rows;

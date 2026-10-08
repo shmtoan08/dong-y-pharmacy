@@ -50,7 +50,8 @@ export async function searchHerbs(query: string, limit = 10): Promise<Herb[]> {
   const { rows } = await db.query<Herb>(
     `SELECT h.id, h.code, h.name_common, h.canonical_key, h.name_han_viet,
             h.name_science, h.used_part, h.property_tinh, h.property_vi,
-            h.quy_kinh, h.cong_nang, h.base_unit, h.price_per_unit, h.stock_quantity,
+            h.quy_kinh, h.cong_nang, h.base_unit, h.price_per_unit,
+            COALESCE((SELECT SUM(l.quantity_current) FROM stock_lots l WHERE l.herb_id = h.id), 0) AS stock_quantity,
             h.min_stock_quantity, h.is_valuable, h.is_active
      FROM herbs h
      LEFT JOIN herb_aliases a ON a.herb_id = h.id
