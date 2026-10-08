@@ -7,6 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { AliasForm } from "./AliasForm";
+import { DosageLimitCard } from "./DosageLimitCard";
+import { getDosageLimit } from "@/features/prescriptions/actions";
 import { Pencil, Trash2 } from "lucide-react";
 
 function Field({ label, value }: { label: string; value?: string | null }) {
@@ -28,6 +30,8 @@ export default async function HerbDetailPage({
   const user = await getSessionUser();
   if (!user) notFound();
   await requireRole("admin", "practitioner", "dispenser");
+  const dosageLimit = await getDosageLimit(id);
+  const canManageDose = user.role === "admin" || user.role === "practitioner";
   const herb = await getHerb(id);
   if (!herb) notFound();
 
@@ -104,6 +108,13 @@ export default async function HerbDetailPage({
           {canEdit && <AliasForm herbId={id} />}
         </CardContent>
       </Card>
+
+      <DosageLimitCard
+        herbId={id}
+        baseUnit={herb.base_unit}
+        initial={dosageLimit}
+        canManage={canManageDose}
+      />
 
       {canEdit && (
         <form action={toggleHerbActive.bind(null, id)}>

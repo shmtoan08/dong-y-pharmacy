@@ -147,6 +147,171 @@ export async function createPrescriptionDraft(
  * Chốt đơn: atomic — UPDATE status WHERE draft + INSERT snapshot trong 1 transaction.
  * Chống double-confirm bằng rowCount check (theo review ChatGPT).
  */
+
+export interface SafetyInteraction {
+  interaction_id: string;
+  herb_a_name: string;
+  herb_b_name: string;
+  severity: "cam_ky" | "can_trong";
+  description: string | null;
+  overridden: boolean;
+}
+
+export interface SafetyDosageWarning {
+  herb_name: string;
+  daily_dose: number;
+  max_daily_dose: number;
+}
+
+export interface SafetyResult {
+  interactions: SafetyInteraction[];
+  dosageWarnings: SafetyDosageWarning[];
+  blocking: SafetyInteraction[];
+}
+
+/**
+ * Hàm domain duy nhất đánh giá an toàn đơn thuốc.
+ * Dùng chung cho UI (hiển thị cảnh báo) và confirmPrescription (chặn trong transaction).
+ */
+export async function evaluatePrescriptionSafety(
+  prescriptionId: string,
+  tx: { query: typeof db.query },
+): Promise<SafetyResult> {
+  // Lấy distinct herb_id trong đơn
+  const { rows: items } = await tx.query<{ herb_id: string; herb_name: string; weight_per_pack: number }>(
+    `SELECT DISTINCT ON (herb_id) herb_id, herb_name, weight_per_pack
+     FROM prescription_items WHERE prescription_id = $1 AND herb_id IS NOT NULL`,
+    [prescriptionId],
+  );
+  const { rows: pr } = await tx.query<{ num_of_packs: number }>(
+    `SELECT num_of_packs FROM prescriptions WHERE id = $1`,
+    [prescriptionId],
+  );
+  const numPacks = pr.length > 0 ? Number(pr[0].num_of_packs) || 1 : 1;
+
+  const interactions: SafetyInteraction[] = [];
+  const herbIds = items.map((i) => i.herb_id);
+
+  // Check từng cặp
+  for (let i = 0; i < herbIds.length; i++) {
+    for (let j = i + 1; j < herbIds.length; j++) {
+      const a = herbIds[i] < herbIds[j] ? herbIds[i] : herbIds[j];
+      const b = herbIds[i] < herbIds[j] ? herbIds[j] : herbIds[i];
+      const { rows: ix } = await tx.query<{
+        id: string; severity: string; description: string | null;
+        herb_a_name: string; herb_b_name: string;
+      }>(
+        `SELECT ix.id, ix.severity, ix.description,
+                ha.name_common AS herb_a_name, hb.name_common AS herb_b_name
+         FROM herb_interactions ix
+         JOIN herbs ha ON ha.id = ix.herb_a_id
+         JOIN herbs hb ON hb.id = ix.herb_b_id
+         WHERE ix.herb_a_id = $1 AND ix.herb_b_id = $2 AND ix.verified = TRUE`,
+        [a, b],
+      );
+      for (const r of ix) {
+        const { rows: ov } = await tx.query(
+          `SELECT 1 FROM prescription_interaction_overrides
+           WHERE prescription_id = $1 AND interaction_id = $2`,
+          [prescriptionId, r.id],
+        );
+        interactions.push({
+          interaction_id: r.id,
+          herb_a_name: r.herb_a_name,
+          herb_b_name: r.herb_b_name,
+          severity: r.severity as "cam_ky" | "can_trong",
+          description: r.description,
+          overridden: ov.length > 0,
+        });
+      }
+    }
+  }
+
+  // Check liều
+  const dosageWarnings: SafetyDosageWarning[] = [];
+  for (const it of items) {
+    const { rows: dl } = await tx.query<{ max_daily_dose: number }>(
+      `SELECT max_daily_dose FROM herb_dosage_limits
+       WHERE herb_id = $1 AND verified = TRUE AND max_daily_dose IS NOT NULL`,
+      [it.herb_id],
+    );
+    if (dl.length > 0) {
+      const dailyDose = Number(it.weight_per_pack) * numPacks;
+      const maxDose = Number(dl[0].max_daily_dose);
+      if (dailyDose > maxDose) {
+        dosageWarnings.push({
+          herb_name: it.herb_name,
+          daily_dose: dailyDose,
+          max_daily_dose: maxDose,
+        });
+      }
+    }
+  }
+
+  const blocking = interactions.filter((x) => x.severity === "cam_ky" && !x.overridden);
+  return { interactions, dosageWarnings, blocking };
+}
+
+/** UI gọi để hiển thị cảnh báo real-time (không lock) */
+export async function checkPrescriptionSafety(prescriptionId: string): Promise<SafetyResult> {
+  await requireRole("admin", "practitioner", "dispenser");
+  return evaluatePrescriptionSafety(prescriptionId, { query: db.query.bind(db) });
+}
+
+/**
+ * Override tương kỵ — practitioner/admin, lý do bắt buộc.
+ * Chỉ override được cặp đang tồn tại trong đơn hiện tại.
+ */
+export async function overrideInteraction(
+  prescriptionId: string,
+  interactionId: string,
+  reason: string,
+): Promise<ActionState> {
+  const user = await requireRole("admin", "practitioner");
+  if (!reason?.trim()) return { error: "Vui lòng nhập lý do override." };
+
+  // Verify interaction còn hiệu lực trong đơn hiện tại
+  const safety = await evaluatePrescriptionSafety(prescriptionId, { query: db.query.bind(db) });
+  const target = safety.interactions.find((x) => x.interaction_id === interactionId);
+  if (!target) return { error: "Cặp tương kỵ không còn trong đơn hiện tại." };
+  if (target.overridden) return { error: "Đã override cặp này rồi." };
+
+  try {
+    await db.query(
+      `INSERT INTO prescription_interaction_overrides
+         (prescription_id, interaction_id, reason, overridden_by)
+       VALUES ($1, $2, $3, $4)`,
+      [prescriptionId, interactionId, reason.trim(), user.id],
+    );
+  } catch (e) {
+    console.error("[overrideInteraction] failed:", e);
+    return { error: "Override thất bại." };
+  }
+
+  await audit({
+    userId: user.id,
+    action: "INTERACTION_OVERRIDE",
+    tableName: "prescriptions",
+    rowId: prescriptionId,
+    newValue: { interaction_id: interactionId, reason: reason.trim() },
+  });
+  return {};
+}
+
+/**
+ * Khi sửa đơn (thêm/xóa/sửa vị) → xóa toàn bộ override cũ.
+ * Gọi trong cùng transaction với thao tác sửa đơn.
+ */
+export async function invalidateOverrides(
+  prescriptionId: string,
+  tx: { query: typeof db.query },
+): Promise<void> {
+  await tx.query(
+    `DELETE FROM prescription_interaction_overrides WHERE prescription_id = $1`,
+    [prescriptionId],
+  );
+}
+
 export async function confirmPrescription(id: string): Promise<ActionState> {
   const user = await requireRole("admin", "practitioner");
 
@@ -161,6 +326,15 @@ export async function confirmPrescription(id: string): Promise<ActionState> {
       );
       if (rowCount === 0) {
         throw new Error("ALREADY_PROCESSED");
+      }
+
+      // 1b. Kiểm tra an toàn lâm sàng (P0: re-check server-side trong transaction)
+      const safety = await evaluatePrescriptionSafety(id, tx);
+      if (safety.blocking.length > 0) {
+        const names = safety.blocking
+          .map((b) => `${b.herb_a_name} + ${b.herb_b_name}`)
+          .join("; ");
+        throw new Error(`BLOCKED_INTERACTION:${names}`);
       }
 
       // 2. Lấy dữ liệu đầy đủ để snapshot (trong cùng transaction)
@@ -233,6 +407,12 @@ export async function confirmPrescription(id: string): Promise<ActionState> {
   } catch (e) {
     if (e instanceof Error && e.message === "ALREADY_PROCESSED") {
       return { error: "Đơn đã được xử lý trước đó, vui lòng tải lại." };
+    }
+    if (e instanceof Error && e.message.startsWith("BLOCKED_INTERACTION:")) {
+      const names = e.message.replace("BLOCKED_INTERACTION:", "");
+      return {
+        error: `Đơn có cặp cấm kỵ chưa được duyệt: ${names}. Vui lòng xử lý trước khi chốt.`,
+      };
     }
     console.error("[confirmPrescription] failed:", e);
     return { error: "Không chốt được đơn, vui lòng thử lại" };
@@ -648,4 +828,168 @@ export async function reprisePrescription(sourceId: string): Promise<{ newId?: s
     console.error("[reprisePrescription] failed:", e);
     return { error: "Không tạo được đơn bốc lại, vui lòng thử lại" };
   }
+}
+
+/* ==================== QUẢN LÝ TƯƠNG KỴ ==================== */
+
+export interface InteractionRow {
+  id: string;
+  herb_a_id: string;
+  herb_b_id: string;
+  herb_a_name: string;
+  herb_a_code: string;
+  herb_b_name: string;
+  herb_b_code: string;
+  severity: "cam_ky" | "can_trong";
+  description: string | null;
+  source: string | null;
+  verified: boolean;
+  verified_by_name: string | null;
+  verified_at: string | null;
+  created_at: string;
+}
+
+export async function listInteractions(filter?: {
+  q?: string;
+  severity?: string;
+  verified?: string;
+}): Promise<InteractionRow[]> {
+  await requireRole("admin", "practitioner", "dispenser");
+  const conds: string[] = [];
+  const params: unknown[] = [];
+  if (filter?.q) {
+    params.push(`%${filter.q}%`);
+    conds.push(`(ha.name_common ILIKE $${params.length} OR hb.name_common ILIKE $${params.length})`);
+  }
+  if (filter?.severity) {
+    params.push(filter.severity);
+    conds.push(`ix.severity = $${params.length}`);
+  }
+  if (filter?.verified === "yes") conds.push(`ix.verified = TRUE`);
+  if (filter?.verified === "no") conds.push(`ix.verified = FALSE`);
+  const where = conds.length > 0 ? `WHERE ${conds.join(" AND ")}` : "";
+  const { rows } = await db.query(
+    `SELECT ix.id, ix.herb_a_id, ix.herb_b_id, ix.severity, ix.description, ix.source,
+            ix.verified, ix.verified_at, ix.created_at,
+            ha.name_common AS herb_a_name, ha.code AS herb_a_code,
+            hb.name_common AS herb_b_name, hb.code AS herb_b_code,
+            u.full_name AS verified_by_name
+     FROM herb_interactions ix
+     JOIN herbs ha ON ha.id = ix.herb_a_id
+     JOIN herbs hb ON hb.id = ix.herb_b_id
+     LEFT JOIN users u ON u.id = ix.verified_by
+     ${where}
+     ORDER BY ix.verified ASC, ix.severity DESC, ix.created_at DESC`,
+    params,
+  );
+  return rows as InteractionRow[];
+}
+
+export async function createInteraction(
+  herbAId: string,
+  herbBId: string,
+  severity: "cam_ky" | "can_trong",
+  description?: string,
+  source?: string,
+): Promise<{ id?: string; error?: string }> {
+  const user = await requireRole("admin", "practitioner");
+  if (herbAId === herbBId) return { error: "Hai vị thuốc phải khác nhau." };
+  const a = herbAId < herbBId ? herbAId : herbBId;
+  const b = herbAId < herbBId ? herbBId : herbAId;
+  try {
+    const { rows } = await db.query<{ id: string }>(
+      `INSERT INTO herb_interactions (herb_a_id, herb_b_id, severity, description, source, created_by)
+       VALUES ($1, $2, $3, $4, $5, $6) RETURNING id`,
+      [a, b, severity, description?.trim() || null, source?.trim() || null, user.id],
+    );
+    return { id: rows[0].id };
+  } catch (e) {
+    if (e instanceof Error && e.message.includes("uq_interaction_pair")) {
+      return { error: "Cặp tương kỵ này đã tồn tại." };
+    }
+    console.error("[createInteraction] failed:", e);
+    return { error: "Tạo thất bại." };
+  }
+}
+
+export async function verifyInteraction(id: string): Promise<{ error?: string }> {
+  const user = await requireRole("admin", "practitioner");
+  const { rowCount } = await db.query(
+    `UPDATE herb_interactions SET verified = TRUE, verified_by = $1, verified_at = NOW()
+     WHERE id = $2 AND verified = FALSE`,
+    [user.id, id],
+  );
+  if (rowCount === 0) return { error: "Không thể duyệt." };
+  await audit({ userId: user.id, action: "INTERACTION_VERIFY", tableName: "herb_interactions", rowId: id });
+  return {};
+}
+
+export async function unverifyInteraction(id: string): Promise<{ error?: string }> {
+  const user = await requireRole("admin", "practitioner");
+  await db.query(
+    `UPDATE herb_interactions SET verified = FALSE, verified_by = NULL, verified_at = NULL
+     WHERE id = $1`,
+    [id],
+  );
+  await audit({ userId: user.id, action: "INTERACTION_UNVERIFY", tableName: "herb_interactions", rowId: id });
+  return {};
+}
+
+export async function deleteInteraction(id: string): Promise<{ error?: string }> {
+  const user = await requireRole("admin", "practitioner");
+  const { rows } = await db.query<{ verified: boolean }>(
+    `SELECT verified FROM herb_interactions WHERE id = $1`,
+    [id],
+  );
+  if (rows.length === 0) return { error: "Không tìm thấy." };
+  if (rows[0].verified && user.role !== "admin") {
+    return { error: "Chỉ admin được xóa cặp đã kiểm duyệt." };
+  }
+  await db.query(`DELETE FROM herb_interactions WHERE id = $1`, [id]);
+  await audit({ userId: user.id, action: "INTERACTION_DELETE", tableName: "herb_interactions", rowId: id });
+  return {};
+}
+
+/* ==================== GIỚI HẠN LIỀU ==================== */
+
+export async function getDosageLimit(herbId: string): Promise<{
+  max_daily_dose: number | null; source: string | null; verified: boolean;
+} | null> {
+  await requireRole("admin", "practitioner", "dispenser");
+  const { rows } = await db.query<{
+    max_daily_dose: number | null; source: string | null; verified: boolean;
+  }>(
+    `SELECT max_daily_dose, source, verified FROM herb_dosage_limits WHERE herb_id = $1`,
+    [herbId],
+  );
+  return rows.length > 0 ? rows[0] : null;
+}
+
+export async function setDosageLimit(
+  herbId: string,
+  maxDailyDose: number | null,
+  source?: string,
+): Promise<{ error?: string }> {
+  const user = await requireRole("admin", "practitioner");
+  if (maxDailyDose !== null && maxDailyDose <= 0) return { error: "Liều phải dương." };
+  await db.query(
+    `INSERT INTO herb_dosage_limits (herb_id, max_daily_dose, source, created_by)
+     VALUES ($1, $2, $3, $4)
+     ON CONFLICT (herb_id) DO UPDATE SET
+       max_daily_dose = EXCLUDED.max_daily_dose,
+       source = EXCLUDED.source,
+       verified = FALSE, verified_by = NULL, verified_at = NULL`,
+    [herbId, maxDailyDose, source?.trim() || null, user.id],
+  );
+  return {};
+}
+
+export async function verifyDosageLimit(herbId: string): Promise<{ error?: string }> {
+  const user = await requireRole("admin", "practitioner");
+  await db.query(
+    `UPDATE herb_dosage_limits SET verified = TRUE, verified_by = $1, verified_at = NOW()
+     WHERE herb_id = $2`,
+    [user.id, herbId],
+  );
+  return {};
 }

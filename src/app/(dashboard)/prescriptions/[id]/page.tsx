@@ -7,6 +7,7 @@ import { RepriseButton } from "./RepriseButton";
 import { Button } from "@/components/ui/button";
 import { Printer } from "lucide-react";
 import Link from "next/link";
+import { TooltipProvider } from "@/components/ui/tooltip";
 
 export default async function PrescriptionPage({
   params,
@@ -21,28 +22,30 @@ export default async function PrescriptionPage({
   if (!prescription || !user) notFound();
 
   const canEdit = user.role === "admin" || user.role === "practitioner";
-  const canDispense = true; // admin/practitioner/dispenser đều được đánh dấu bốc thuốc
+  const canDispense = true;
 
   return (
-    <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <BackButton href={`/patients/${prescription.patient_id}`} />
-        <div className="flex gap-2">
-          <Link href={`/prescriptions/${id}/print`}>
-            <Button variant="outline" size="sm">
-              <Printer className="mr-1 h-4 w-4" /> In đơn thuốc
-            </Button>
-          </Link>
-          {canEdit && (
-            <RepriseButton prescriptionId={id} prescriptionCode={prescription.prescription_code} />
-          )}
+    <TooltipProvider>
+      <div className="space-y-4">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <BackButton href={`/patients/${prescription.patient_id}`} />
+          <div className="flex gap-2">
+            <Link href={`/prescriptions/${id}/print`}>
+              <Button variant="outline" size="sm">
+                <Printer className="mr-1 h-4 w-4" /> In đơn thuốc
+              </Button>
+            </Link>
+            {canEdit && (
+              <RepriseButton prescriptionId={id} prescriptionCode={prescription.prescription_code} />
+            )}
+          </div>
         </div>
+        <PrescriptionDetailClient
+          prescription={prescription}
+          canEdit={canEdit}
+          canDispense={canDispense}
+        />
       </div>
-      <PrescriptionDetailClient
-      prescription={prescription}
-      canEdit={canEdit}
-      canDispense={canDispense}
-      />
-    </div>
+    </TooltipProvider>
   );
 }

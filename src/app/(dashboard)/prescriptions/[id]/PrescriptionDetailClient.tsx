@@ -13,6 +13,7 @@ import {
   type PrescriptionDetail,
 } from "@/features/prescriptions/actions";
 import { STATUS_LABEL, STATUS_STYLE } from "@/features/prescriptions/constants";
+import { SafetyBanner } from "./SafetyBanner";
 import { InfoModal } from "@/components/shared/InfoModal";
 import {
   Dialog,
@@ -56,8 +57,17 @@ export function PrescriptionDetailClient({
     0,
   );
 
+  const [safetyKey, setSafetyKey] = useState(0);
+
   return (
     <div className="space-y-4">
+      {prescription.status === "draft" && (
+        <SafetyBanner
+          prescriptionId={prescription.id}
+          canOverride={canEdit}
+          onChanged={() => setSafetyKey((k) => k + 1)}
+        />
+      )}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-xl font-bold text-stone-900 md:text-2xl">

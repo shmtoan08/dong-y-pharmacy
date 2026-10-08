@@ -21,6 +21,7 @@ import {
   BarChart3,
   Activity,
   ShieldCheck,
+  AlertTriangle,
   Settings,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -48,6 +49,7 @@ const MENU: MenuItem[] = [
   { href: "/prescriptions", label: "Kê đơn & Bốc thuốc", icon: FileText, roles: ["admin", "practitioner", "dispenser"], section: "Khám chữa bệnh" },
   // Kho dược liệu
   { href: "/herbs", label: "Danh mục vị thuốc", icon: Leaf, roles: ["admin", "practitioner", "dispenser"], section: "Kho dược liệu" },
+  { href: "/herb-interactions", label: "Tương kỵ dược liệu", icon: AlertTriangle, roles: ["admin", "practitioner", "dispenser"], section: "Kho dược liệu" },
   { href: "/formulas", label: "Bài thuốc mẫu", icon: BookOpen, roles: ["admin", "practitioner", "dispenser"], section: "Kho dược liệu" },
   { href: "/suppliers", label: "Nhà cung cấp", icon: Truck, roles: ["admin", "practitioner", "dispenser"], section: "Kho dược liệu" },
   { href: "/stock-receipts", label: "Phiếu nhập kho", icon: Package, roles: ["admin", "practitioner", "dispenser"], section: "Kho dược liệu" },
