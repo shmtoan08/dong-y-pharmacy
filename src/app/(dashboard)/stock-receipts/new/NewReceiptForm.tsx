@@ -77,7 +77,7 @@ export function NewReceiptForm({ suppliers }: { suppliers: Supplier[] }) {
             <Button type="button" variant="outline">Hủy</Button>
           </Link>
           <Button type="submit" disabled={pending} className="bg-emerald-800 hover:bg-emerald-900">
-            {pending ? "Đang lưu..." : "Tạo phiếu nháp"}
+            {pending ? "Đang lưu..." : "Lưu nháp"}
           </Button>
         </div>
       </form>

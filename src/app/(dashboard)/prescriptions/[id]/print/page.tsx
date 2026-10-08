@@ -1,6 +1,7 @@
 import { getPrescriptionSnapshot } from "@/features/prescriptions/actions";
 import { notFound } from "next/navigation";
 import { BackButton } from "@/components/shared/BackButton";
+import { PrintButton } from "@/components/shared/PrintButton";
 
 /**
  * In đơn thuốc khổ A5 — đọc DUY NHẤT từ snapshot (bất biến lúc CONFIRM).
@@ -25,12 +26,7 @@ export default async function PrintPrescriptionPage({
       {/* Nút quay lại + in — ẩn khi in */}
       <div className="no-print flex items-center justify-center gap-4 p-4">
         <BackButton href={`/prescriptions/${id}`} />
-        <button
-          onClick={() => window.print()}
-          className="rounded-lg bg-emerald-800 px-6 py-2 text-white hover:bg-emerald-900"
-        >
-          In đơn thuốc
-        </button>
+        <PrintButton label="In đơn thuốc" />
       </div>
 
       <div className="print-page mx-auto max-w-[148mm] bg-white p-6 text-stone-900">

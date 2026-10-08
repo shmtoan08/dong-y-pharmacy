@@ -42,6 +42,7 @@ export interface ReceiptDetail {
     quantity: number;
     unit_price: number | null;
     expiry_date: string | null;
+    supplier_lot_code: string | null;
     lot_code: string | null;
   }[];
 }
@@ -117,7 +118,7 @@ export async function getReceipt(id: string): Promise<ReceiptDetail | null> {
   if (rows.length === 0) return null;
   const { rows: items } = await db.query(
     `SELECT ri.id, ri.herb_id, h.code AS herb_code, h.name_common AS herb_name,
-            h.base_unit, ri.quantity, ri.unit_price, ri.expiry_date, l.lot_code
+            h.base_unit, ri.quantity, ri.unit_price, ri.expiry_date, ri.supplier_lot_code, l.lot_code
      FROM stock_receipt_items ri
      JOIN herbs h ON h.id = ri.herb_id
      LEFT JOIN stock_lots l ON l.id = ri.lot_id
@@ -141,7 +142,7 @@ export async function createReceipt(
   }
 
   // Parse items: items[0][herb_id], items[0][quantity], ...
-  const items: { herb_id: string; quantity: number; unit_price?: number; expiry_date?: string }[] = [];
+  const items: { herb_id: string; quantity: number; unit_price?: number; expiry_date?: string; supplier_lot_code?: string }[] = [];
   for (let i = 0; ; i++) {
     const herbId = formData.get(`items[${i}][herb_id]`);
     if (!herbId) break;
@@ -155,6 +156,9 @@ export async function createReceipt(
         : undefined,
       expiry_date: formData.get(`items[${i}][expiry_date]`)
         ? String(formData.get(`items[${i}][expiry_date]`))
+        : undefined,
+      supplier_lot_code: formData.get(`items[${i}][supplier_lot_code]`)
+        ? String(formData.get(`items[${i}][supplier_lot_code]`)).trim()
         : undefined,
     });
   }
@@ -171,9 +175,9 @@ export async function createReceipt(
     const rid = rows[0].id;
     for (const it of items) {
       await tx.query(
-        `INSERT INTO stock_receipt_items (receipt_id, herb_id, quantity, unit_price, expiry_date)
-         VALUES ($1, $2, $3, $4, $5)`,
-        [rid, it.herb_id, it.quantity, it.unit_price ?? null, it.expiry_date ?? null],
+        `INSERT INTO stock_receipt_items (receipt_id, herb_id, quantity, unit_price, expiry_date, supplier_lot_code)
+         VALUES ($1, $2, $3, $4, $5, $6)`,
+        [rid, it.herb_id, it.quantity, it.unit_price ?? null, it.expiry_date ?? null, it.supplier_lot_code ?? null],
       );
     }
     return rid;
@@ -201,15 +205,15 @@ export async function confirmReceipt(id: string): Promise<{ error?: string }> {
       const supplierId = rows[0].supplier_id;
 
       const { rows: items } = await tx.query(
-        `SELECT id, herb_id, quantity, expiry_date FROM stock_receipt_items WHERE receipt_id = $1`,
+        `SELECT id, herb_id, quantity, expiry_date, supplier_lot_code FROM stock_receipt_items WHERE receipt_id = $1`,
         [id],
       );
       for (const it of items) {
         const lotCode = await nextLotCode(tx);
         const { rows: lotRows } = await tx.query<{ id: string }>(
-          `INSERT INTO stock_lots (lot_code, herb_id, supplier_id, quantity_initial, quantity_current, expiry_date)
-           VALUES ($1, $2, $3, $4, $4, $5) RETURNING id`,
-          [lotCode, it.herb_id, supplierId, it.quantity, it.expiry_date],
+          `INSERT INTO stock_lots (lot_code, herb_id, supplier_id, quantity_initial, quantity_current, expiry_date, supplier_lot_code)
+           VALUES ($1, $2, $3, $4, $4, $5, $6) RETURNING id`,
+          [lotCode, it.herb_id, supplierId, it.quantity, it.expiry_date, it.supplier_lot_code ?? null],
         );
         await tx.query(
           `UPDATE stock_receipt_items SET lot_id = $1 WHERE id = $2`,

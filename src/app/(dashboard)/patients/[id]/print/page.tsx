@@ -3,6 +3,7 @@ import { getVisitsByPatient, getVisitDetail } from "@/features/visits/actions";
 import { getPrescriptionsByVisit } from "@/features/prescriptions/actions";
 import { notFound } from "next/navigation";
 import { BackButton } from "@/components/shared/BackButton";
+import { PrintButton } from "@/components/shared/PrintButton";
 
 const SEX_LABEL: Record<string, string> = {
   male: "Nam",
@@ -37,12 +38,7 @@ export default async function PrintPatientPage({
     <div className="min-h-screen bg-white">
       <div className="no-print flex items-center justify-center gap-4 p-4 print:hidden">
         <BackButton href={`/patients/${id}`} />
-        <button
-          onClick={() => window.print()}
-          className="rounded-lg bg-emerald-800 px-6 py-2 text-white hover:bg-emerald-900"
-        >
-          In bệnh án
-        </button>
+        <PrintButton label="In bệnh án" />
       </div>
 
       <div className="mx-auto max-w-3xl p-8 text-sm">

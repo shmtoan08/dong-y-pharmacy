@@ -4,6 +4,9 @@ import { Badge } from "@/components/ui/badge";
 import { getReceipt } from "@/features/inventory/actions";
 import { getSessionUser } from "@/lib/auth";
 import { ReceiptActions } from "./ReceiptActions";
+import { Printer } from "lucide-react";
+import Link from "next/link";
+import { Button } from "@/components/ui/button";
 import { notFound } from "next/navigation";
 
 const STATUS_LABEL: Record<string, string> = {
@@ -55,7 +58,14 @@ export default async function ReceiptDetailPage({
             )}
           </p>
         </div>
-        {canAct && <ReceiptActions receiptId={id} />}
+        <div className="flex gap-2">
+          <Link href={`/stock-receipts/${id}/print`}>
+            <Button variant="outline" size="sm">
+              <Printer className="mr-1 h-4 w-4" /> In phiếu nhập
+            </Button>
+          </Link>
+          {canAct && <ReceiptActions receiptId={id} />}
+        </div>
       </div>
 
       {receipt.note && (
@@ -82,6 +92,7 @@ export default async function ReceiptDetailPage({
                   <th className="hidden px-4 py-2.5 text-right font-medium text-stone-600 md:table-cell">Đơn giá</th>
                   <th className="hidden px-4 py-2.5 text-right font-medium text-stone-600 md:table-cell">Thành tiền</th>
                   <th className="hidden px-4 py-2.5 font-medium text-stone-600 lg:table-cell">HSD</th>
+                  <th className="hidden px-4 py-2.5 font-medium text-stone-600 lg:table-cell">Số lô NCC</th>
                   <th className="px-4 py-2.5 font-medium text-stone-600">Mã lô</th>
                 </tr>
               </thead>
@@ -107,6 +118,9 @@ export default async function ReceiptDetailPage({
                       {it.expiry_date
                         ? new Date(it.expiry_date).toLocaleDateString("vi-VN")
                         : <span className="text-stone-400">Không HSD</span>}
+                    </td>
+                    <td className="hidden px-4 py-2.5 lg:table-cell">
+                      {it.supplier_lot_code ?? <span className="text-stone-400">—</span>}
                     </td>
                     <td className="px-4 py-2.5 font-mono text-xs">
                       {it.lot_code ?? <span className="text-stone-400">—</span>}
