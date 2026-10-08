@@ -12,6 +12,7 @@ export interface InvoiceRow {
   prescription_id: string;
   prescription_code: string;
   patient_name: string;
+  patient_phone: string | null;
   status: "unpaid" | "partial" | "paid" | "cancelled";
   subtotal: number;
   discount: number;
@@ -24,6 +25,9 @@ export interface InvoiceRow {
 export async function listInvoices(filter?: {
   q?: string;
   status?: string;
+  from?: string;
+  to?: string;
+  method?: string;
 }): Promise<InvoiceRow[]> {
   await requireRole("admin", "practitioner", "dispenser");
   const conds: string[] = [];
@@ -36,10 +40,22 @@ export async function listInvoices(filter?: {
     params.push(filter.status);
     conds.push(`i.status = $${params.length}`);
   }
+  if (filter?.from) {
+    params.push(filter.from);
+    conds.push(`i.created_at >= $${params.length}::timestamptz`);
+  }
+  if (filter?.to) {
+    params.push(filter.to);
+    conds.push(`i.created_at < ($${params.length}::date + interval '1 day')`);
+  }
+  if (filter?.method) {
+    params.push(filter.method);
+    conds.push(`EXISTS (SELECT 1 FROM payments pay WHERE pay.invoice_id = i.id AND pay.method = $${params.length})`);
+  }
   const where = conds.length > 0 ? `WHERE ${conds.join(" AND ")}` : "";
   const { rows } = await db.query(
     `SELECT i.id, i.invoice_code, i.prescription_id, p.prescription_code,
-            pt.full_name AS patient_name, i.status, i.subtotal, i.discount, i.total,
+            pt.full_name AS patient_name, pt.phone AS patient_phone, i.status, i.subtotal, i.discount, i.total,
             COALESCE((SELECT SUM(pay.amount) FROM payments pay WHERE pay.invoice_id = i.id), 0) AS paid_total,
             i.total - COALESCE((SELECT SUM(pay.amount) FROM payments pay WHERE pay.invoice_id = i.id), 0) AS remaining,
             i.created_at
@@ -334,4 +350,24 @@ export async function paySupplierReceipt(
 
   await audit({ userId: user.id, action: "SUPPLIER_PAYMENT", tableName: "stock_receipts", rowId: receiptId, newValue: { amount, method } });
   return {};
+}
+
+
+export interface InvoiceKpi {
+  total_revenue: number;
+  total_collected: number;
+  total_debt: number;
+}
+
+export async function getInvoiceKpi(): Promise<InvoiceKpi> {
+  await requireRole("admin", "practitioner", "dispenser");
+  const { rows } = await db.query(
+    `SELECT
+       COALESCE(SUM(i.total), 0) AS total_revenue,
+       COALESCE(SUM((SELECT COALESCE(SUM(pay.amount), 0) FROM payments pay WHERE pay.invoice_id = i.id)), 0) AS total_collected
+     FROM invoices i WHERE i.status != 'cancelled'`,
+  );
+  const revenue = Number(rows[0].total_revenue);
+  const collected = Number(rows[0].total_collected);
+  return { total_revenue: revenue, total_collected: collected, total_debt: revenue - collected };
 }

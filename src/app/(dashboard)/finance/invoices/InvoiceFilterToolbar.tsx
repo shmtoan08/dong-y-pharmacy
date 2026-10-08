@@ -14,11 +14,22 @@ import {
 import { Button } from "@/components/ui/button";
 import { X } from "lucide-react";
 
+const TIME_PRESETS = [
+  { value: "all", label: "Tất cả" },
+  { value: "today", label: "Hôm nay" },
+  { value: "month", label: "Tháng này" },
+  { value: "custom", label: "Tùy chọn" },
+];
+
 export function InvoiceFilterToolbar() {
   const router = useRouter();
   const sp = useSearchParams();
   const [q, setQ] = useState(sp.get("q") ?? "");
   const status = sp.get("status") ?? "all";
+  const timePreset = sp.get("time") ?? "all";
+  const method = sp.get("method") ?? "all";
+  const [customFrom, setCustomFrom] = useState(sp.get("from") ?? "");
+  const [customTo, setCustomTo] = useState(sp.get("to") ?? "");
 
   useEffect(() => {
     const t = setTimeout(() => {
@@ -40,6 +51,27 @@ export function InvoiceFilterToolbar() {
     router.replace(`?${params.toString()}`);
   };
 
+  const setTime = (v: string) => {
+    const params = new URLSearchParams(sp.toString());
+    params.delete("from");
+    params.delete("to");
+    if (v === "all") params.delete("time");
+    else params.set("time", v);
+    params.delete("page");
+    router.replace(`?${params.toString()}`);
+  };
+
+  const applyCustom = () => {
+    const params = new URLSearchParams(sp.toString());
+    params.set("time", "custom");
+    if (customFrom) params.set("from", customFrom);
+    else params.delete("from");
+    if (customTo) params.set("to", customTo);
+    else params.delete("to");
+    params.delete("page");
+    router.replace(`?${params.toString()}`);
+  };
+
   return (
     <div className="flex flex-wrap items-end gap-3">
       <div className="min-w-44 flex-1 space-y-1.5">
@@ -48,7 +80,7 @@ export function InvoiceFilterToolbar() {
           <Input
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            placeholder="Mã HĐ, tên bệnh nhân..."
+            placeholder="Mã HĐ, tên BN, SĐT..."
             className="pr-8"
           />
           {q && (
@@ -58,6 +90,41 @@ export function InvoiceFilterToolbar() {
             </button>
           )}
         </div>
+      </div>
+      <div className="space-y-1.5">
+        <Label className="text-xs">Thời gian</Label>
+        <Select value={timePreset} onValueChange={setTime}>
+          <SelectTrigger className="w-32"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            {TIME_PRESETS.map((t) => (
+              <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+      {timePreset === "custom" && (
+        <>
+          <div className="space-y-1.5">
+            <Label className="text-xs">Từ ngày</Label>
+            <Input type="date" value={customFrom} onChange={(e) => setCustomFrom(e.target.value)} className="w-36" />
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs">Đến ngày</Label>
+            <Input type="date" value={customTo} onChange={(e) => setCustomTo(e.target.value)} className="w-36" />
+          </div>
+          <Button size="sm" variant="outline" onClick={applyCustom}>Áp dụng</Button>
+        </>
+      )}
+      <div className="space-y-1.5">
+        <Label className="text-xs">Hình thức TT</Label>
+        <Select value={method} onValueChange={(v) => setParam("method", v)}>
+          <SelectTrigger className="w-32"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Tất cả</SelectItem>
+            <SelectItem value="cash">Tiền mặt</SelectItem>
+            <SelectItem value="transfer">Chuyển khoản</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
       <div className="space-y-1.5">
         <Label className="text-xs">Trạng thái</Label>
@@ -72,8 +139,8 @@ export function InvoiceFilterToolbar() {
           </SelectContent>
         </Select>
       </div>
-      {(q || status !== "all") && (
-        <Button variant="ghost" size="sm" onClick={() => { setQ(""); router.replace("?"); }}>
+      {(q || status !== "all" || timePreset !== "all" || method !== "all") && (
+        <Button variant="ghost" size="sm" onClick={() => { setQ(""); setCustomFrom(""); setCustomTo(""); router.replace("?"); }}>
           Xóa lọc
         </Button>
       )}
