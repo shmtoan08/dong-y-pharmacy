@@ -13,9 +13,11 @@ interface SessionUser {
 
 export function AppShell({
   user,
+  permissions,
   children,
 }: {
   user: SessionUser;
+  permissions: string[];
   children: React.ReactNode;
 }) {
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -39,7 +41,7 @@ export function AppShell({
     <div className="flex min-h-screen bg-stone-50">
       {/* Sidebar desktop — ẩn trên mobile */}
       <div className="hidden lg:block">
-        <Sidebar role={user.role} />
+        <Sidebar permissions={permissions} />
       </div>
 
       {/* Drawer mobile — w-64 khít với Sidebar bên trong.
@@ -51,7 +53,7 @@ export function AppShell({
             onClick={() => setDrawerOpen(false)}
           />
           <div className="absolute left-0 top-0 h-full w-64 shadow-xl">
-            <Sidebar role={user.role} onNavigate={() => setDrawerOpen(false)} />
+            <Sidebar permissions={permissions} onNavigate={() => setDrawerOpen(false)} />
           </div>
         </div>
       )}

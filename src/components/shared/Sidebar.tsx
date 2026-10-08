@@ -28,55 +28,53 @@ import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { InfoModal } from "./InfoModal";
 
-type Role = "admin" | "practitioner" | "dispenser";
-
 interface MenuItem {
   href: string;
   label: string;
   icon: React.ComponentType<{ className?: string }>;
-  roles: Role[];
+  permission?: string;
   comingSoon?: boolean;
   section?: string;
 }
 
 const MENU: MenuItem[] = [
   // Tổng quan
-  { href: "/", label: "Bảng điều khiển", icon: Home, roles: ["admin", "practitioner", "dispenser"], section: "Tổng quan" },
+  { href: "/", label: "Bảng điều khiển", icon: Home, section: "Tổng quan" },
   // Khám chữa bệnh
-  { href: "/appointments", label: "Tiếp đón & Lịch hẹn", icon: CalendarClock, roles: ["admin", "practitioner"], section: "Khám chữa bệnh" },
-  { href: "/visits", label: "Khám bệnh & Bệnh án", icon: Stethoscope, roles: ["admin", "practitioner"], section: "Khám chữa bệnh" },
-  { href: "/patients", label: "Hồ sơ bệnh nhân", icon: Users, roles: ["admin", "practitioner", "dispenser"], section: "Khám chữa bệnh" },
-  { href: "/prescriptions", label: "Kê đơn & Bốc thuốc", icon: FileText, roles: ["admin", "practitioner", "dispenser"], section: "Khám chữa bệnh" },
+  { href: "/appointments", label: "Tiếp đón & Lịch hẹn", icon: CalendarClock, permission: "appointments.view", section: "Khám chữa bệnh" },
+  { href: "/visits", label: "Khám bệnh & Bệnh án", icon: Stethoscope, permission: "visits.view", section: "Khám chữa bệnh" },
+  { href: "/patients", label: "Hồ sơ bệnh nhân", icon: Users, permission: "patients.view", section: "Khám chữa bệnh" },
+  { href: "/prescriptions", label: "Kê đơn & Bốc thuốc", icon: FileText, permission: "prescriptions.view", section: "Khám chữa bệnh" },
   // Kho dược liệu
-  { href: "/herbs", label: "Danh mục vị thuốc", icon: Leaf, roles: ["admin", "practitioner", "dispenser"], section: "Kho dược liệu" },
-  { href: "/herb-interactions", label: "Tương kỵ dược liệu", icon: AlertTriangle, roles: ["admin", "practitioner", "dispenser"], section: "Kho dược liệu" },
-  { href: "/formulas", label: "Bài thuốc mẫu", icon: BookOpen, roles: ["admin", "practitioner", "dispenser"], section: "Kho dược liệu" },
-  { href: "/suppliers", label: "Nhà cung cấp", icon: Truck, roles: ["admin", "practitioner", "dispenser"], section: "Kho dược liệu" },
-  { href: "/stock-receipts", label: "Phiếu nhập kho", icon: Package, roles: ["admin", "practitioner", "dispenser"], section: "Kho dược liệu" },
-  { href: "/stock-lots", label: "Quản lý lô hàng", icon: ClipboardCheck, roles: ["admin", "practitioner", "dispenser"], section: "Kho dược liệu" },
-  { href: "/stock-checks", label: "Kiểm kho", icon: ClipboardCheck, roles: ["admin", "practitioner", "dispenser"], section: "Kho dược liệu" },
+  { href: "/herbs", label: "Danh mục vị thuốc", icon: Leaf, permission: "herbs.view", section: "Kho dược liệu" },
+  { href: "/herb-interactions", label: "Tương kỵ dược liệu", icon: AlertTriangle, permission: "herbs.view", section: "Kho dược liệu" },
+  { href: "/formulas", label: "Bài thuốc mẫu", icon: BookOpen, permission: "formulas.view", section: "Kho dược liệu" },
+  { href: "/suppliers", label: "Nhà cung cấp", icon: Truck, permission: "inventory.view", section: "Kho dược liệu" },
+  { href: "/stock-receipts", label: "Phiếu nhập kho", icon: Package, permission: "inventory.view", section: "Kho dược liệu" },
+  { href: "/stock-lots", label: "Quản lý lô hàng", icon: ClipboardCheck, permission: "inventory.view", section: "Kho dược liệu" },
+  { href: "/stock-checks", label: "Kiểm kho", icon: ClipboardCheck, permission: "inventory.view", section: "Kho dược liệu" },
   // Tài chính
-  { href: "/finance/invoices", label: "Hóa đơn & Thanh toán", icon: Receipt, roles: ["admin"], section: "Tài chính"  },
-  { href: "/finance/ledger", label: "Sổ quỹ & Công nợ", icon: Wallet, roles: ["admin"], section: "Tài chính" },
+  { href: "/finance/invoices", label: "Hóa đơn & Thanh toán", icon: Receipt, permission: "finance.invoices.view", section: "Tài chính" },
+  { href: "/finance/ledger", label: "Sổ quỹ & Công nợ", icon: Wallet, permission: "finance.ledger.view", section: "Tài chính" },
   // Báo cáo
-  { href: "/reports/revenue", label: "Doanh thu & Lợi nhuận", icon: TrendingUp, roles: ["admin"], section: "Báo cáo" },
-  { href: "/reports/herbs", label: "Tiêu hao dược liệu", icon: BarChart3, roles: ["admin"], section: "Báo cáo" },
-  { href: "/reports/visits", label: "Lượt khám & Bệnh nhân", icon: Activity, roles: ["admin"], section: "Báo cáo" },
+  { href: "/reports/revenue", label: "Doanh thu & Lợi nhuận", icon: TrendingUp, permission: "reports.view", section: "Báo cáo" },
+  { href: "/reports/herbs", label: "Tiêu hao dược liệu", icon: BarChart3, permission: "reports.view", section: "Báo cáo" },
+  { href: "/reports/visits", label: "Lượt khám & Bệnh nhân", icon: Activity, permission: "reports.view", section: "Báo cáo" },
   // Hệ thống
-  { href: "/admin/staff", label: "Nhân viên & Bác sĩ", icon: UserCog, roles: ["admin"], section: "Hệ thống" },
-  { href: "/admin/roles", label: "Phân quyền", icon: ShieldCheck, roles: ["admin"], section: "Hệ thống" },
-  { href: "/admin/settings", label: "Cài đặt chung", icon: Settings, roles: ["admin"], section: "Hệ thống" },
+  { href: "/admin/staff", label: "Nhân viên & Bác sĩ", icon: UserCog, permission: "admin.users.view", section: "Hệ thống" },
+  { href: "/admin/roles", label: "Phân quyền", icon: ShieldCheck, permission: "admin.users.manage", section: "Hệ thống" },
+  { href: "/admin/settings", label: "Cài đặt chung", icon: Settings, permission: "admin.users.manage", section: "Hệ thống" },
 ];
 
 export function Sidebar({
-  role,
+  permissions,
   onNavigate,
 }: {
-  role: Role;
+  permissions: string[];
   onNavigate?: () => void;
 }) {
   const pathname = usePathname();
-  const items = MENU.filter((m) => m.roles.includes(role));
+  const items = MENU.filter((m) => !m.permission || permissions.includes(m.permission));
   const [comingSoonLabel, setComingSoonLabel] = useState<string | null>(null);
 
   // Menu active = menu nguoi dung bam chon (luu sessionStorage),
