@@ -22,8 +22,25 @@ export interface AppointmentRow {
   visit_id: string | null;
 }
 
-export async function listAppointments(date: string): Promise<AppointmentRow[]> {
+export async function listAppointments(
+  date: string,
+  filter?: { q?: string; practitionerId?: string; status?: string },
+): Promise<AppointmentRow[]> {
   await requireRole("admin", "practitioner", "dispenser");
+  const conds = [`a.scheduled_at >= $1::date`, `a.scheduled_at < ($1::date + interval '1 day')`];
+  const params: unknown[] = [date];
+  if (filter?.q) {
+    params.push(`%${filter.q}%`);
+    conds.push(`(pt.full_name ILIKE $${params.length} OR pt.phone ILIKE $${params.length})`);
+  }
+  if (filter?.practitionerId) {
+    params.push(filter.practitionerId);
+    conds.push(`a.practitioner_id = $${params.length}`);
+  }
+  if (filter?.status) {
+    params.push(filter.status);
+    conds.push(`a.status = $${params.length}`);
+  }
   const { rows } = await db.query(
     `SELECT a.id, a.patient_id, pt.full_name AS patient_name, pt.phone AS patient_phone,
             a.practitioner_id, u.full_name AS practitioner_name,
@@ -33,9 +50,9 @@ export async function listAppointments(date: string): Promise<AppointmentRow[]> 
      JOIN patients pt ON pt.id = a.patient_id
      LEFT JOIN users u ON u.id = a.practitioner_id
      LEFT JOIN visits v ON v.appointment_id = a.id
-     WHERE a.scheduled_at >= $1::date AND a.scheduled_at < ($1::date + interval '1 day')
+     WHERE ${conds.join(" AND ")}
      ORDER BY a.scheduled_at`,
-    [date],
+    params,
   );
   return rows as AppointmentRow[];
 }
@@ -205,4 +222,55 @@ export async function markNoShow(id: string): Promise<{ error?: string }> {
   if (rowCount === 0) return { error: "Không thể đánh dấu ở trạng thái này." };
   await audit({ userId: user.id, action: "APPOINTMENT_NOSHOW", tableName: "appointments", rowId: id });
   return {};
+}
+
+
+/** Dời lịch: đổi ngày giờ hẹn (chỉ khi chưa tiếp đón) */
+export async function rescheduleAppointment(
+  id: string,
+  scheduledAt: string,
+): Promise<{ error?: string }> {
+  const user = await requireRole("admin", "practitioner");
+  if (!scheduledAt) return { error: "Chưa chọn ngày giờ mới." };
+  const { rowCount } = await db.query(
+    `UPDATE appointments SET scheduled_at = $1, updated_at = NOW()
+     WHERE id = $2 AND status = 'scheduled'`,
+    [scheduledAt, id],
+  );
+  if (rowCount === 0) return { error: "Chỉ dời được lịch chưa tiếp đón." };
+  await audit({ userId: user.id, action: "APPOINTMENT_RESCHEDULE", tableName: "appointments", rowId: id, newValue: { scheduledAt } });
+  return {};
+}
+
+/** Chi tiết 1 lịch hẹn */
+export async function getAppointment(id: string): Promise<AppointmentRow | null> {
+  await requireRole("admin", "practitioner", "dispenser");
+  const { rows } = await db.query(
+    `SELECT a.id, a.patient_id, pt.full_name AS patient_name, pt.phone AS patient_phone,
+            a.practitioner_id, u.full_name AS practitioner_name,
+            a.scheduled_at, a.status, a.reason, a.note,
+            v.id AS visit_id
+     FROM appointments a
+     JOIN patients pt ON pt.id = a.patient_id
+     LEFT JOIN users u ON u.id = a.practitioner_id
+     LEFT JOIN visits v ON v.appointment_id = a.id
+     WHERE a.id = $1`,
+    [id],
+  );
+  return (rows[0] as AppointmentRow) ?? null;
+}
+
+
+/** Tạo nhanh bệnh nhân (từ form đặt lịch) */
+export async function quickCreatePatient(
+  fullName: string,
+  phone?: string,
+): Promise<{ id?: string; error?: string }> {
+  const user = await requireRole("admin", "practitioner");
+  if (!fullName.trim()) return { error: "Chưa nhập họ tên." };
+  const { rows } = await db.query<{ id: string }>(
+    `INSERT INTO patients (full_name, phone, created_by) VALUES ($1, $2, $3) RETURNING id`,
+    [fullName.trim(), phone?.trim() || null, user.id],
+  );
+  return { id: rows[0].id };
 }

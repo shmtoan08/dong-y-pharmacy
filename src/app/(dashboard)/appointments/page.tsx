@@ -7,23 +7,30 @@ import { listAppointments, getTodayStats } from "@/features/appointments/actions
 import { getSessionUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { NewAppointmentButton } from "./NewAppointmentButton";
-import { DateNavigator } from "./DateNavigator";
+import { WalkInButton } from "./WalkInButton";
 import { AppointmentRowActions, StatusBadge } from "./AppointmentActions";
+import { AppointmentDetailDialog } from "./AppointmentDetailDialog";
+import { AppointmentFilterToolbar } from "./AppointmentFilterToolbar";
+import { DateNavigator } from "./DateNavigator";
+import { RescheduleButton } from "./RescheduleButton";
 
 export default async function AppointmentsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ date?: string }>;
+  searchParams: Promise<{ date?: string; q?: string; practitionerId?: string; status?: string }>;
 }) {
   const sp = await searchParams;
   const date = sp.date || new Date().toISOString().slice(0, 10);
   const [appointments, stats, user] = await Promise.all([
-    listAppointments(date),
+    listAppointments(date, {
+      q: sp.q || undefined,
+      practitionerId: sp.practitionerId || undefined,
+      status: sp.status || undefined,
+    }),
     getTodayStats(date),
     getSessionUser(),
   ]);
 
-  // Danh sách bác sĩ (practitioner)
   const { rows: practitioners } = await db.query<{ id: string; full_name: string }>(
     `SELECT u.id, u.full_name FROM users u WHERE u.role = 'practitioner' AND u.is_active = true ORDER BY u.full_name`,
   );
@@ -41,16 +48,19 @@ export default async function AppointmentsPage({
   return (
     <TooltipProvider>
       <div className="space-y-4">
-        <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h1 className="text-xl font-bold text-stone-900 md:text-2xl">Tiếp đón & Lịch hẹn</h1>
             <p className="text-sm text-stone-500">
               {isToday ? "Hôm nay" : new Date(date).toLocaleDateString("vi-VN")} · {appointments.length} lịch hẹn
             </p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
             <DateNavigator date={date} />
-            {canManage && <NewAppointmentButton practitioners={practitioners} />}
+            <div className="flex gap-2">
+              {canManage && <WalkInButton />}
+              {canManage && <NewAppointmentButton practitioners={practitioners} />}
+            </div>
           </div>
         </div>
 
@@ -64,6 +74,8 @@ export default async function AppointmentsPage({
             </Card>
           ))}
         </div>
+
+        <AppointmentFilterToolbar practitioners={practitioners} />
 
         <Card className="hidden md:block">
           <CardContent className="p-0">
@@ -82,20 +94,39 @@ export default async function AppointmentsPage({
                 <tbody>
                   {appointments.map((a) => (
                     <tr key={a.id} className="border-b border-stone-100 hover:bg-stone-50">
-                      <td className="whitespace-nowrap px-4 py-2.5 font-medium">
-                        {new Date(a.scheduled_at).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })}
+                      <td className="whitespace-nowrap px-4 py-2.5">
+                        <AppointmentDetailDialog
+                          appt={a}
+                          canManage={canManage}
+                          trigger={
+                            <span className="font-medium text-emerald-700 hover:underline">
+                              {new Date(a.scheduled_at).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Ho_Chi_Minh" })}
+                            </span>
+                          }
+                        />
                       </td>
                       <td className="px-4 py-2.5">
-                        <Link href={`/patients/${a.patient_id}`} className="font-medium hover:text-emerald-700 hover:underline">
-                          {a.patient_name}
-                        </Link>
-                        {a.patient_phone && <span className="block text-xs text-stone-500">{a.patient_phone}</span>}
+                        <AppointmentDetailDialog
+                          appt={a}
+                          canManage={canManage}
+                          trigger={
+                            <span>
+                              <span className="font-medium hover:text-emerald-700 hover:underline">{a.patient_name}</span>
+                              {a.patient_phone && <span className="block text-xs text-stone-500">{a.patient_phone}</span>}
+                            </span>
+                          }
+                        />
                       </td>
                       <td className="px-4 py-2.5">{a.practitioner_name ?? "—"}</td>
                       <td className="max-w-xs truncate px-4 py-2.5 text-stone-600">{a.reason ?? "—"}</td>
                       <td className="px-4 py-2.5"><StatusBadge status={a.status} /></td>
                       <td className="px-4 py-2.5">
-                        <AppointmentRowActions appt={a} canManage={canManage} />
+                        <div className="flex items-center justify-end gap-1">
+                          {a.status === "scheduled" && canManage && (
+                            <RescheduleButton appointmentId={a.id} currentAt={a.scheduled_at} />
+                          )}
+                          <AppointmentRowActions appt={a} canManage={canManage} />
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -113,17 +144,26 @@ export default async function AppointmentsPage({
             <Card key={a.id}>
               <CardContent className="space-y-1.5 p-4">
                 <div className="flex items-center justify-between">
-                  <span className="font-medium">
-                    {new Date(a.scheduled_at).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })}
-                  </span>
+                  <AppointmentDetailDialog
+                    appt={a}
+                    canManage={canManage}
+                    trigger={
+                      <span className="font-medium text-emerald-700">
+                        {new Date(a.scheduled_at).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Ho_Chi_Minh" })}
+                      </span>
+                    }
+                  />
                   <StatusBadge status={a.status} />
                 </div>
                 <p className="text-sm">
-                  <Link href={`/patients/${a.patient_id}`} className="font-medium">{a.patient_name}</Link>
+                  <span className="font-medium">{a.patient_name}</span>
                   {a.patient_phone && <span className="text-stone-500"> · {a.patient_phone}</span>}
                 </p>
                 {a.reason && <p className="text-sm text-stone-600">Lý do: {a.reason}</p>}
-                <div className="flex justify-end border-t border-stone-100 pt-2">
+                <div className="flex items-center justify-end gap-2 border-t border-stone-100 pt-2">
+                  {a.status === "scheduled" && canManage && (
+                    <RescheduleButton appointmentId={a.id} currentAt={a.scheduled_at} />
+                  )}
                   <AppointmentRowActions appt={a} canManage={canManage} />
                 </div>
               </CardContent>

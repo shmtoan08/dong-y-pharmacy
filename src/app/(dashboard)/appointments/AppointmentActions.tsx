@@ -55,27 +55,30 @@ export function AppointmentRowActions({
 
   if (!canManage) return null;
 
+  // h-11 w-11 trên mobile (44px), h-9 w-9 trên desktop
+  const btnCls = "h-11 w-11 md:h-9 md:w-9";
+
   return (
     <>
       <div className="flex justify-end gap-1">
         {appt.status === "scheduled" && (
           <>
             <Tooltip label="Tiếp đón">
-              <Button variant="ghost" size="icon" className="h-9 w-9 text-emerald-700" disabled={busy}
+              <Button variant="ghost" size="icon" className={`${btnCls} text-emerald-700`} disabled={busy}
                 onClick={() => run(() => checkInAppointment(appt.id))}>
-                <UserCheck className="h-4 w-4" />
+                <UserCheck className="h-5 w-5 md:h-4 md:w-4" />
               </Button>
             </Tooltip>
             <Tooltip label="Không đến">
-              <Button variant="ghost" size="icon" className="h-9 w-9 text-red-600" disabled={busy}
+              <Button variant="ghost" size="icon" className={`${btnCls} text-red-600`} disabled={busy}
                 onClick={() => run(() => markNoShow(appt.id))}>
-                <UserX className="h-4 w-4" />
+                <UserX className="h-5 w-5 md:h-4 md:w-4" />
               </Button>
             </Tooltip>
             <Tooltip label="Hủy lịch">
-              <Button variant="ghost" size="icon" className="h-9 w-9" disabled={busy}
+              <Button variant="ghost" size="icon" className={btnCls} disabled={busy}
                 onClick={() => run(() => cancelAppointment(appt.id))}>
-                <X className="h-4 w-4" />
+                <X className="h-5 w-5 md:h-4 md:w-4" />
               </Button>
             </Tooltip>
           </>
@@ -83,22 +86,22 @@ export function AppointmentRowActions({
         {appt.status === "checked_in" && (
           <>
             <Tooltip label="Tạo lượt khám">
-              <Button variant="ghost" size="icon" className="h-9 w-9 text-emerald-700" disabled={busy}
+              <Button variant="ghost" size="icon" className={`${btnCls} text-emerald-700`} disabled={busy}
                 onClick={onCreateVisit}>
-                <Stethoscope className="h-4 w-4" />
+                <Stethoscope className="h-5 w-5 md:h-4 md:w-4" />
               </Button>
             </Tooltip>
             <Tooltip label="Hủy lịch">
-              <Button variant="ghost" size="icon" className="h-9 w-9" disabled={busy}
+              <Button variant="ghost" size="icon" className={btnCls} disabled={busy}
                 onClick={() => run(() => cancelAppointment(appt.id))}>
-                <X className="h-4 w-4" />
+                <X className="h-5 w-5 md:h-4 md:w-4" />
               </Button>
             </Tooltip>
           </>
         )}
         {appt.status === "completed" && appt.visit_id && (
           <Link href={`/prescriptions/new?visitId=${appt.visit_id}`}>
-            <Button variant="ghost" size="sm" className="h-8 text-xs text-emerald-700">
+            <Button variant="ghost" size="sm" className="h-11 md:h-8 text-xs text-emerald-700">
               Kê đơn
             </Button>
           </Link>

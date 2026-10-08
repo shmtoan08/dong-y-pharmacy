@@ -23,6 +23,7 @@ import {
 import { InfoModal } from "@/components/shared/InfoModal";
 import { Plus } from "lucide-react";
 import { createAppointment } from "@/features/appointments/actions";
+import { quickCreatePatient } from "@/features/appointments/actions";
 import { searchPatients } from "@/features/patients/actions";
 
 interface Practitioner {
@@ -44,6 +45,10 @@ export function NewAppointmentButton({ practitioners }: { practitioners: Practit
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showNewPatient, setShowNewPatient] = useState(false);
+  const [newName, setNewName] = useState("");
+  const [newPhone, setNewPhone] = useState("");
+  const [creating, setCreating] = useState(false);
 
   const onSearchPatient = async (q: string) => {
     setPatientQ(q);
@@ -68,7 +73,7 @@ export function NewAppointmentButton({ practitioners }: { practitioners: Practit
     const res = await createAppointment({
       patient_id: patientId,
       practitioner_id: practitionerId || null,
-      scheduled_at: `${date}T${time}:00`,
+      scheduled_at: `${date}T${time}:00+07:00`,
       reason,
       note,
     });
@@ -89,6 +94,28 @@ export function NewAppointmentButton({ practitioners }: { practitioners: Practit
     setPractitionerId("");
     setReason("");
     setNote("");
+    setShowNewPatient(false);
+    setNewName("");
+    setNewPhone("");
+  };
+
+  const onCreatePatient = async () => {
+    if (!newName.trim()) {
+      setError("Chưa nhập họ tên bệnh nhân.");
+      return;
+    }
+    setCreating(true);
+    const res = await quickCreatePatient(newName.trim(), newPhone.trim());
+    setCreating(false);
+    if (res.error) {
+      setError(res.error);
+    } else if (res.id) {
+      setPatientId(res.id);
+      setPatientName(newName.trim());
+      setShowNewPatient(false);
+      setNewName("");
+      setNewPhone("");
+    }
   };
 
   return (
@@ -133,6 +160,25 @@ export function NewAppointmentButton({ practitioners }: { practitioners: Practit
                       ))}
                     </div>
                   )}
+                  <button
+                    type="button"
+                    className="mt-1 text-xs text-emerald-700 hover:underline"
+                    onClick={() => setShowNewPatient(!showNewPatient)}
+                  >
+                    + Tạo nhanh bệnh nhân mới
+                  </button>
+                  {showNewPatient && (
+                    <div className="mt-2 space-y-2 rounded-lg border border-stone-200 bg-stone-50 p-3">
+                      <div className="grid grid-cols-2 gap-2">
+                        <Input value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="Họ tên *" />
+                        <Input value={newPhone} onChange={(e) => setNewPhone(e.target.value)} placeholder="SĐT" />
+                      </div>
+                      <Button size="sm" onClick={onCreatePatient} disabled={creating}
+                        className="bg-emerald-800 hover:bg-emerald-900">
+                        {creating ? "Đang tạo..." : "Tạo bệnh nhân"}
+                      </Button>
+                    </div>
+                  )}
                 </>
               )}
             </div>
@@ -168,7 +214,7 @@ export function NewAppointmentButton({ practitioners }: { practitioners: Practit
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setOpen(false)} disabled={busy}>Để sau</Button>
+            <Button variant="outline" onClick={() => setOpen(false)} disabled={busy}>Hủy</Button>
             <Button className="bg-emerald-800 hover:bg-emerald-900" onClick={onSubmit} disabled={busy}>
               {busy ? "Đang lưu..." : "Đặt lịch"}
             </Button>
