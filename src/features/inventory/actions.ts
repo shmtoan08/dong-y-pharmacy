@@ -62,6 +62,7 @@ export interface LotRow {
   quantity_current: number;
   expiry_date: string | null;
   supplier_lot_code: string | null;
+  storage_location: string | null;
   created_at: string;
 }
 
@@ -296,7 +297,8 @@ export async function listLots(filter?: {
   const where = conds.length > 0 ? `WHERE ${conds.join(" AND ")}` : "";
   const { rows } = await db.query<LotRow>(
     `SELECT l.id, l.lot_code, l.herb_id, h.code AS herb_code, h.name_common AS herb_name,
-            h.base_unit, l.supplier_id, s.name AS supplier_name,
+            h.base_unit, h.vi_tri_hoc_tu AS storage_location,
+            l.supplier_id, s.name AS supplier_name,
             l.receipt_id, r.receipt_code,
             l.quantity_initial, l.quantity_current, l.expiry_date, l.supplier_lot_code, l.created_at
      FROM stock_lots l
@@ -453,16 +455,61 @@ export interface StockCheckRow {
   item_count: number;
 }
 
-export async function listStockChecks(): Promise<StockCheckRow[]> {
+export interface StockCheckRow {
+  id: string;
+  check_code: string;
+  status: string;
+  note: string | null;
+  created_by_name: string | null;
+  confirmed_by_name: string | null;
+  confirmed_at: string | null;
+  created_at: string;
+  item_count: number;
+  total_diff: number;
+  diff_count: number;
+}
+
+export async function listStockChecks(filter?: {
+  q?: string;
+  status?: string;
+  dateFrom?: string;
+  dateTo?: string;
+}): Promise<StockCheckRow[]> {
   await requireRole("admin", "practitioner", "dispenser");
+  const conds: string[] = [];
+  const params: unknown[] = [];
+  if (filter?.q) {
+    params.push(`%${filter.q}%`);
+    conds.push(`(c.check_code ILIKE $${params.length} OR u1.full_name ILIKE $${params.length})`);
+  }
+  if (filter?.status) {
+    params.push(filter.status);
+    conds.push(`c.status = $${params.length}`);
+  }
+  if (filter?.dateFrom) {
+    params.push(filter.dateFrom);
+    conds.push(`c.created_at >= $${params.length}`);
+  }
+  if (filter?.dateTo) {
+    params.push(filter.dateTo);
+    conds.push(`c.created_at < ($${params.length}::date + INTERVAL '1 day')`);
+  }
+  const where = conds.length > 0 ? `WHERE ${conds.join(" AND ")}` : "";
   const { rows } = await db.query(
     `SELECT c.id, c.check_code, c.status, c.note, c.created_at, c.confirmed_at,
             u1.full_name AS created_by_name, u2.full_name AS confirmed_by_name,
-            (SELECT COUNT(*) FROM stock_check_items i WHERE i.check_id = c.id) AS item_count
+            (SELECT COUNT(*) FROM stock_check_items i WHERE i.check_id = c.id) AS item_count,
+            COALESCE((SELECT SUM(i.actual_qty - i.system_qty) FROM stock_check_items i
+                       WHERE i.check_id = c.id AND i.actual_qty IS NOT NULL), 0) AS total_diff,
+            (SELECT COUNT(*) FROM stock_check_items i
+             WHERE i.check_id = c.id AND i.actual_qty IS NOT NULL
+               AND i.actual_qty <> i.system_qty) AS diff_count
      FROM stock_checks c
      LEFT JOIN users u1 ON u1.id = c.created_by
      LEFT JOIN users u2 ON u2.id = c.confirmed_by
+     ${where}
      ORDER BY c.created_at DESC`,
+    params,
   );
   return rows as StockCheckRow[];
 }
@@ -472,8 +519,12 @@ export interface StockCheckItemRow {
   lot_id: string;
   lot_code: string;
   herb_name: string;
+  herb_code: string;
+  base_unit: string;
+  storage_location: string | null;
   system_qty: number;
   actual_qty: number | null;
+  diff_reason: string | null;
 }
 
 export async function getStockCheck(id: string): Promise<{
@@ -485,8 +536,9 @@ export async function getStockCheck(id: string): Promise<{
   const check = checks.find((c) => c.id === id);
   if (!check) return null;
   const { rows } = await db.query(
-    `SELECT i.id, i.lot_id, l.lot_code, h.name_common AS herb_name,
-            i.system_qty, i.actual_qty
+    `SELECT i.id, i.lot_id, l.lot_code, h.name_common AS herb_name, h.code AS herb_code,
+            h.base_unit, h.vi_tri_hoc_tu AS storage_location,
+            i.system_qty, i.actual_qty, i.diff_reason
      FROM stock_check_items i
      JOIN stock_lots l ON l.id = i.lot_id
      JOIN herbs h ON h.id = l.herb_id
@@ -509,11 +561,13 @@ export async function createStockCheck(
   try {
     let checkId = "";
     await withTransaction(async (tx) => {
-      const { rows: seqRows } = await tx.query<{ n: number }>(
-        `SELECT next_daily_n('check') AS n`
+      const today = new Date().toISOString().slice(0, 10);
+      const { rows: seqRows } = await tx.query<{ next_daily_n: number }>(
+        `SELECT next_daily_n($1, 'check')`,
+        [today],
       );
-      const ymd = new Date().toISOString().slice(0, 10).replace(/-/g, "");
-      const code = `KK-${ymd}-${String(seqRows[0].n).padStart(3, "0")}`;
+      const ymd = today.replace(/-/g, "");
+      const code = `KK-${ymd}-${String(seqRows[0].next_daily_n).padStart(3, "0")}`;
       const { rows } = await tx.query<{ id: string }>(
         `INSERT INTO stock_checks (check_code, note, created_by)
          VALUES ($1, $2, $3) RETURNING id`,
@@ -550,18 +604,19 @@ export async function createStockCheck(
   }
 }
 
-/** Nhập số lượng thực tế cho 1 dòng kiểm kê */
+/** Nhập số lượng thực tế + lý do chênh lệch cho 1 dòng kiểm kê */
 export async function setCheckActual(
   itemId: string,
   actualQty: number,
+  diffReason?: string,
 ): Promise<{ error?: string }> {
   await requireRole("admin", "practitioner", "dispenser");
   if (actualQty < 0) return { error: "Số lượng không được âm" };
   const { rowCount } = await db.query(
-    `UPDATE stock_check_items i SET actual_qty = $1
+    `UPDATE stock_check_items i SET actual_qty = $1, diff_reason = $3
      FROM stock_checks c
      WHERE i.id = $2 AND i.check_id = c.id AND c.status = 'draft'`,
-    [actualQty, itemId],
+    [actualQty, itemId, diffReason?.trim() || null],
   );
   if (rowCount === 0) return { error: "Phiếu đã xác nhận, không sửa được." };
   return {};

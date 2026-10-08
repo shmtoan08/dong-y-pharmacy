@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
 import { InfoModal } from "@/components/shared/InfoModal";
 import { BackButton } from "@/components/shared/BackButton";
 import { createStockCheck } from "@/features/inventory/actions";
@@ -17,6 +18,7 @@ export function NewCheckForm({ lots }: { lots: LotRow[] }) {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [checkAll, setCheckAll] = useState(true);
   const [note, setNote] = useState("");
+  const [search, setSearch] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -27,6 +29,16 @@ export function NewCheckForm({ lots }: { lots: LotRow[] }) {
     setSelected(s);
     setCheckAll(false);
   };
+
+  const q = search.toLowerCase().trim();
+  const visibleLots = q
+    ? lots.filter(
+        (l) =>
+          l.herb_name.toLowerCase().includes(q) ||
+          l.lot_code.toLowerCase().includes(q) ||
+          l.herb_code.toLowerCase().includes(q),
+      )
+    : lots;
 
   const onSubmit = async () => {
     setBusy(true);
@@ -53,7 +65,7 @@ export function NewCheckForm({ lots }: { lots: LotRow[] }) {
 
       <Card>
         <CardHeader className="pb-3">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-wrap items-center justify-between gap-3">
             <CardTitle className="text-base">Chọn lô kiểm kê ({lots.length})</CardTitle>
             <label className="flex cursor-pointer items-center gap-2 text-sm">
               <Checkbox
@@ -63,10 +75,19 @@ export function NewCheckForm({ lots }: { lots: LotRow[] }) {
               Tất cả lô còn hàng
             </label>
           </div>
+          {!checkAll && (
+            <div className="pt-2">
+              <Input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Tìm nhanh vị thuốc, mã lô..."
+              />
+            </div>
+          )}
         </CardHeader>
         {!checkAll && (
           <CardContent className="max-h-96 space-y-1 overflow-y-auto">
-            {lots.map((l) => (
+            {visibleLots.map((l) => (
               <label
                 key={l.id}
                 className="flex cursor-pointer items-center gap-3 rounded-lg px-2 py-1.5 hover:bg-stone-50"
@@ -75,13 +96,27 @@ export function NewCheckForm({ lots }: { lots: LotRow[] }) {
                   checked={selected.has(l.id)}
                   onCheckedChange={() => toggle(l.id)}
                 />
-                <span className="font-mono text-xs">{l.lot_code}</span>
-                <span className="text-sm">{l.herb_name}</span>
-                <span className="ml-auto text-xs text-stone-500">
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm">
+                    <span className="font-mono text-xs">{l.lot_code}</span>{" "}
+                    {l.herb_name}
+                  </p>
+                  {(l as LotRow & { storage_location?: string }).storage_location && (
+                    <p className="text-xs text-stone-500">
+                      Vị trí: {(l as LotRow & { storage_location?: string }).storage_location}
+                    </p>
+                  )}
+                </div>
+                <span className="whitespace-nowrap text-xs text-stone-500">
                   {Number(l.quantity_current).toLocaleString("vi-VN")} {l.base_unit}
                 </span>
               </label>
             ))}
+            {visibleLots.length === 0 && (
+              <p className="py-4 text-center text-sm text-stone-500">
+                Không tìm thấy lô nào.
+              </p>
+            )}
           </CardContent>
         )}
       </Card>

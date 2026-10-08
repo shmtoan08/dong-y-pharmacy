@@ -49,3 +49,5 @@ ON CONFLICT DO NOTHING;
 
 -- 5. Bỏ dual source of truth: stock_quantity -> SUM từ lots
 ALTER TABLE herbs DROP COLUMN IF EXISTS stock_quantity;
+
+ALTER TABLE stock_check_items ADD COLUMN IF NOT EXISTS diff_reason TEXT;
