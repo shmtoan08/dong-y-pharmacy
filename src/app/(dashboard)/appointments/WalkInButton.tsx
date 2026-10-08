@@ -16,7 +16,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { searchPatients } from "@/features/patients/actions";
-import { createAppointment } from "@/features/appointments/actions";
+import { createAppointment, quickCreatePatient } from "@/features/appointments/actions";
 
 /** Nút tiếp đón nhanh bệnh nhân vãng lai (walk-in) */
 export function WalkInButton() {
@@ -29,6 +29,10 @@ export function WalkInButton() {
   const [reason, setReason] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showNewPatient, setShowNewPatient] = useState(false);
+  const [newName, setNewName] = useState("");
+  const [newPhone, setNewPhone] = useState("");
+  const [creating, setCreating] = useState(false);
 
   const onSearch = async (q: string) => {
     setPatientQ(q);
@@ -72,6 +76,27 @@ export function WalkInButton() {
     setPatientId("");
     setPatientName("");
     setReason("");
+    setShowNewPatient(false);
+    setNewName("");
+    setNewPhone("");
+  };
+
+  const onCreatePatient = async () => {
+    if (!newName.trim()) {
+      setError("Chưa nhập họ tên bệnh nhân.");
+      return;
+    }
+    setCreating(true);
+    const res = await quickCreatePatient(newName.trim(), newPhone.trim());
+    setCreating(false);
+    if (res.error) setError(res.error);
+    else if (res.id) {
+      setPatientId(res.id);
+      setPatientName(newName.trim());
+      setShowNewPatient(false);
+      setNewName("");
+      setNewPhone("");
+    }
   };
 
   return (
@@ -117,6 +142,25 @@ export function WalkInButton() {
                           {p.phone && <span className="text-stone-500"> · {p.phone}</span>}
                         </button>
                       ))}
+                    </div>
+                  )}
+                  <button
+                    type="button"
+                    className="mt-1 text-xs text-emerald-700 hover:underline"
+                    onClick={() => setShowNewPatient(!showNewPatient)}
+                  >
+                    + Tạo nhanh bệnh nhân mới
+                  </button>
+                  {showNewPatient && (
+                    <div className="mt-2 space-y-2 rounded-lg border border-stone-200 bg-stone-50 p-3">
+                      <div className="grid grid-cols-2 gap-2">
+                        <Input value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="Họ tên *" />
+                        <Input value={newPhone} onChange={(e) => setNewPhone(e.target.value)} placeholder="SĐT" />
+                      </div>
+                      <Button size="sm" onClick={onCreatePatient} disabled={creating}
+                        className="bg-emerald-800 hover:bg-emerald-900">
+                        {creating ? "Đang tạo..." : "Tạo bệnh nhân"}
+                      </Button>
                     </div>
                   )}
                 </>
