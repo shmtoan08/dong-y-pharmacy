@@ -76,7 +76,8 @@ export default async function SuppliersPage({
 
         <SupplierFilterToolbar />
 
-        <Card>
+        {/* Bảng desktop */}
+        <Card className="hidden md:block">
           <CardContent className="p-0">
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
@@ -160,7 +161,71 @@ export default async function SuppliersPage({
                 </tbody>
               </table>
             </div>
+          </CardContent>
+        </Card>
 
+        {/* Cards mobile */}
+        <div className="space-y-3 md:hidden">
+          {rows.length === 0 ? (
+            <p className="py-6 text-center text-sm text-stone-500">
+              Không tìm thấy nhà cung cấp nào.
+            </p>
+          ) : (
+            rows.map((s) => (
+              <Card key={s.id}>
+                <CardContent className="space-y-2 p-4">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <Link
+                        href={`/suppliers/${s.id}`}
+                        className="font-medium text-stone-900 hover:text-emerald-700"
+                      >
+                        {s.name}
+                      </Link>
+                      <p className="font-mono text-xs text-stone-500">{s.code}</p>
+                    </div>
+                    <Badge className={s.is_active ? "bg-emerald-100 text-emerald-800" : "bg-stone-200 text-stone-600"}>
+                      {s.is_active ? "Hợp tác" : "Ngưng"}
+                    </Badge>
+                  </div>
+                  {(s.contact_name || s.phone) && (
+                    <p className="text-sm text-stone-600">
+                      {[s.contact_name, s.phone].filter(Boolean).join(" · ")}
+                    </p>
+                  )}
+                  {s.address && (
+                    <p className="truncate text-xs text-stone-500">{s.address}</p>
+                  )}
+                  <div className="flex justify-end gap-1 border-t border-stone-100 pt-2">
+                    <Tooltip label="Xem chi tiết">
+                      <Link href={`/suppliers/${s.id}`}>
+                        <Button variant="ghost" size="icon" className="h-8 w-8">
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                      </Link>
+                    </Tooltip>
+                    {canEdit && (
+                      <>
+                        <Tooltip label="Chỉnh sửa">
+                          <Link href={`/suppliers/${s.id}/edit`}>
+                            <Button variant="ghost" size="icon" className="h-8 w-8">
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                          </Link>
+                        </Tooltip>
+                        <ToggleSupplierButton id={s.id} isActive={s.is_active} />
+                      </>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            ))
+          )}
+        </div>
+
+        {/* Chân bảng desktop */}
+        <Card className="hidden md:block">
+          <CardContent className="p-0">
             {/* Chân bảng: thống kê + phân trang */}
             <div className="flex flex-wrap items-center justify-between gap-3 border-t border-stone-200 px-4 py-3">
               <p className="text-sm text-stone-500">
@@ -188,6 +253,12 @@ export default async function SuppliersPage({
             </div>
           </CardContent>
         </Card>
+
+        {/* Chân bảng mobile (gon nhe) */}
+        <p className="text-center text-sm text-stone-500 md:hidden">
+          Hiển thị {total === 0 ? 0 : (page - 1) * pageSize + 1}–
+          {Math.min(page * pageSize, total)} trên {total} nhà cung cấp
+        </p>
       </div>
     </TooltipProvider>
   );
