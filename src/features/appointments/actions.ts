@@ -3,6 +3,7 @@
 import { db, withTransaction } from "@/lib/db";
 import { requireRole, getSessionUser } from "@/lib/auth";
 import { audit } from "@/lib/audit";
+import { nextPatientCode } from "@/features/patients/actions";
 
 /* ==================== LỊCH HẸN ==================== */
 
@@ -268,9 +269,10 @@ export async function quickCreatePatient(
 ): Promise<{ id?: string; error?: string }> {
   const user = await requireRole("admin", "practitioner");
   if (!fullName.trim()) return { error: "Chưa nhập họ tên." };
+  const code = await nextPatientCode();
   const { rows } = await db.query<{ id: string }>(
-    `INSERT INTO patients (full_name, phone, created_by) VALUES ($1, $2, $3) RETURNING id`,
-    [fullName.trim(), phone?.trim() || null, user.id],
+    `INSERT INTO patients (patient_code, full_name, phone) VALUES ($1, $2, $3) RETURNING id`,
+    [code, fullName.trim(), phone?.trim() || null],
   );
   return { id: rows[0].id };
 }

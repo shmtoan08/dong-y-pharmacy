@@ -16,7 +16,7 @@ async function requireClinician() {
 }
 
 /** Sinh mã BN-YYYYMMDD-XXX, atomic qua next_daily_n() */
-async function nextPatientCode(): Promise<string> {
+export async function nextPatientCode(): Promise<string> {
   const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
   const { rows } = await db.query<{ next_daily_n: number }>(
     `SELECT next_daily_n($1, 'patient')`,
