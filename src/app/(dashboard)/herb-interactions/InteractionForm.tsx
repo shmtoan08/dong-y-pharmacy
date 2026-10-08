@@ -16,7 +16,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { InfoModal } from "@/components/shared/InfoModal";
-import { BackButton } from "@/components/shared/BackButton";
 import {
   createInteraction,
   type InteractionInput,
@@ -239,7 +238,6 @@ export function InteractionForm({
       </Card>
 
       <div className="flex gap-2">
-        <BackButton href="/herb-interactions" />
         <Button
           onClick={onSubmit}
           disabled={busy || !herbA || !herbB}

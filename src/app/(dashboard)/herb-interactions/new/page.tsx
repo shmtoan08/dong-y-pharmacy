@@ -1,5 +1,6 @@
 import { InteractionForm } from "../InteractionForm";
 import { searchHerbs } from "@/features/herbs/actions";
+import { BackButton } from "@/components/shared/BackButton";
 
 export default async function NewInteractionPage() {
   const herbs = await searchHerbs("", 500);
@@ -11,6 +12,7 @@ export default async function NewInteractionPage() {
 
   return (
     <div className="space-y-4">
+      <BackButton href="/herb-interactions" />
       <div>
         <h1 className="text-xl font-bold text-stone-900 md:text-2xl">Thêm cặp tương kỵ</h1>
         <p className="text-sm text-stone-500">

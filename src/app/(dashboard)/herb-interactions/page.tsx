@@ -12,6 +12,7 @@ import { CATEGORY_LABEL, CONTRA_LABEL } from "@/features/prescriptions/interacti
 import type { InteractionCategory } from "@/features/prescriptions/interactionConstants";
 import { getSessionUser } from "@/lib/auth";
 import { InteractionActions } from "./InteractionActions";
+import { InteractionQuickView } from "./InteractionQuickView";
 import { InteractionFilterToolbar } from "./InteractionFilterToolbar";
 import { PageSizeSelect } from "../visits/PageSizeSelect";
 import { Tooltip, TooltipProvider } from "@/components/ui/tooltip";
@@ -124,6 +125,7 @@ export default async function InteractionsPage({
                         </td>
                         <td className="px-4 py-2.5">
                           <div className="flex justify-end gap-1">
+                            <InteractionQuickView row={r} />
                             {canManage && (
                               <Tooltip label="Sửa">
                                 <Link href={`/herb-interactions/${r.id}/edit`}>
@@ -197,6 +199,7 @@ export default async function InteractionsPage({
                     {r.symptoms && <p className="text-sm text-stone-600">{r.symptoms}</p>}
                     {canManage && (
                       <div className="flex justify-end gap-1 border-t border-stone-100 pt-2">
+                        <InteractionQuickView row={r} />
                         <Tooltip label="Sửa">
                           <Link href={`/herb-interactions/${r.id}/edit`}>
                             <Button variant="ghost" size="icon" className="h-8 w-8">
