@@ -110,9 +110,8 @@ export default async function RevenueReportPage({
         </CardHeader>
         <CardContent className="p-0">
           <PaginatedTable
-            rows={invoices}
             emptyText="Chưa có hóa đơn nào."
-            renderHeader={() => (
+            headers={
               <>
                 <th className="whitespace-nowrap px-4 py-2.5 font-medium text-stone-600">Mã HĐ</th>
                 <th className="px-4 py-2.5 font-medium text-stone-600">Bệnh nhân</th>
@@ -121,8 +120,8 @@ export default async function RevenueReportPage({
                 <th className="px-4 py-2.5 text-right font-medium text-stone-600">Đã thu</th>
                 <th className="px-4 py-2.5 font-medium text-stone-600">Trạng thái</th>
               </>
-            )}
-            renderRow={(r) => (
+            }
+            bodyRows={invoices.map((r) => (
               <tr key={r.invoice_code} className="border-b border-stone-100 hover:bg-stone-50">
                 <td className="whitespace-nowrap px-4 py-2.5 font-mono text-xs">{r.invoice_code}</td>
                 <td className="px-4 py-2.5">{r.patient_name}</td>
@@ -135,7 +134,7 @@ export default async function RevenueReportPage({
                   <Badge variant="outline">{STATUS_LABEL[r.status] ?? r.status}</Badge>
                 </td>
               </tr>
-            )}
+            ))}
           />
         </CardContent>
       </Card>

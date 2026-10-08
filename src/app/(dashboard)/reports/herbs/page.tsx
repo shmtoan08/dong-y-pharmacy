@@ -52,17 +52,16 @@ export default async function HerbsReportPage({
         </CardHeader>
         <CardContent className="p-0">
           <PaginatedTable
-            rows={usage}
             emptyText="Chưa có dữ liệu xuất kho."
-            renderHeader={() => (
+            headers={
               <>
                 <th className="px-4 py-2.5 font-medium text-stone-600">#</th>
                 <th className="px-4 py-2.5 font-medium text-stone-600">Vị thuốc</th>
                 <th className="px-4 py-2.5 text-right font-medium text-stone-600">Đã xuất</th>
                 <th className="px-4 py-2.5 text-right font-medium text-stone-600">Tồn hiện tại</th>
               </>
-            )}
-            renderRow={(u, i) => (
+            }
+            bodyRows={usage.map((u, i) => (
               <tr key={u.herb_id ?? u.herb_name} className="border-b border-stone-100 hover:bg-stone-50">
                 <td className="px-4 py-2.5 text-stone-500">{i + 1}</td>
                 <td className="px-4 py-2.5 font-medium">{u.herb_name}</td>
@@ -71,7 +70,7 @@ export default async function HerbsReportPage({
                   {fmtQty(u.current_stock, u.unit)}
                 </td>
               </tr>
-            )}
+            ))}
           />
         </CardContent>
       </Card>
@@ -82,17 +81,16 @@ export default async function HerbsReportPage({
         </CardHeader>
         <CardContent className="p-0">
           <PaginatedTable
-            rows={lowStock}
             emptyText="Không có vị nào tồn thấp."
-            renderHeader={() => (
+            headers={
               <>
                 <th className="whitespace-nowrap px-4 py-2.5 font-medium text-stone-600">Mã</th>
                 <th className="px-4 py-2.5 font-medium text-stone-600">Vị thuốc</th>
                 <th className="px-4 py-2.5 text-right font-medium text-stone-600">Tồn</th>
                 <th className="px-4 py-2.5 font-medium text-stone-600">Cảnh báo</th>
               </>
-            )}
-            renderRow={(h) => (
+            }
+            bodyRows={lowStock.map((h) => (
               <tr key={h.id} className="border-b border-stone-100 hover:bg-stone-50">
                 <td className="whitespace-nowrap px-4 py-2.5 font-mono text-xs">{h.code}</td>
                 <td className="px-4 py-2.5">{h.name_common}</td>
@@ -108,7 +106,7 @@ export default async function HerbsReportPage({
                   </div>
                 </td>
               </tr>
-            )}
+            ))}
           />
         </CardContent>
       </Card>

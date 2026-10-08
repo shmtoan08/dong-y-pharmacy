@@ -93,17 +93,16 @@ export default async function VisitsReportPage({
         </CardHeader>
         <CardContent className="p-0">
           <PaginatedTable
-            rows={visits}
             emptyText="Chưa có lượt khám nào."
-            renderHeader={() => (
+            headers={
               <>
                 <th className="whitespace-nowrap px-4 py-2.5 font-medium text-stone-600">Ngày khám</th>
                 <th className="px-4 py-2.5 font-medium text-stone-600">Bệnh nhân</th>
                 <th className="px-4 py-2.5 font-medium text-stone-600">Bác sĩ khám</th>
                 <th className="px-4 py-2.5 font-medium text-stone-600">Chẩn đoán</th>
               </>
-            )}
-            renderRow={(v, i) => (
+            }
+            bodyRows={visits.map((v, i) => (
               <tr key={i} className="border-b border-stone-100 hover:bg-stone-50">
                 <td className="whitespace-nowrap px-4 py-2.5 text-stone-600">
                   {new Date(v.visited_at).toLocaleDateString("vi-VN")}
@@ -112,7 +111,7 @@ export default async function VisitsReportPage({
                 <td className="px-4 py-2.5">{v.practitioner_name ?? "—"}</td>
                 <td className="max-w-xs truncate px-4 py-2.5 text-stone-600">{v.diagnosis ?? "—"}</td>
               </tr>
-            )}
+            ))}
           />
         </CardContent>
       </Card>

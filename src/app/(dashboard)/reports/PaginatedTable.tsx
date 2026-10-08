@@ -1,25 +1,23 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 
-export function PaginatedTable<T>({
-  rows,
+export function PaginatedTable({
+  headers,
+  bodyRows,
   pageSize = 10,
-  renderHeader,
-  renderRow,
   emptyText,
 }: {
-  rows: T[];
+  headers: ReactNode;
+  bodyRows: ReactNode[];
   pageSize?: number;
-  renderHeader: () => React.ReactNode;
-  renderRow: (row: T, index: number) => React.ReactNode;
   emptyText: string;
 }) {
   const [page, setPage] = useState(1);
-  const totalPages = Math.max(1, Math.ceil(rows.length / pageSize));
+  const totalPages = Math.max(1, Math.ceil(bodyRows.length / pageSize));
   const safePage = Math.min(page, totalPages);
-  const pageRows = rows.slice((safePage - 1) * pageSize, safePage * pageSize);
+  const pageRows = bodyRows.slice((safePage - 1) * pageSize, safePage * pageSize);
 
   return (
     <div>
@@ -27,11 +25,11 @@ export function PaginatedTable<T>({
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-stone-200 bg-stone-50 text-left">
-              {renderHeader()}
+              {headers}
             </tr>
           </thead>
           <tbody>
-            {pageRows.map((r, i) => renderRow(r, (safePage - 1) * pageSize + i))}
+            {pageRows}
             {pageRows.length === 0 && (
               <tr>
                 <td colSpan={10} className="px-4 py-8 text-center text-sm text-stone-500">
@@ -45,7 +43,7 @@ export function PaginatedTable<T>({
       {totalPages > 1 && (
         <div className="flex items-center justify-between border-t border-stone-200 px-4 py-3">
           <p className="text-sm text-stone-500">
-            Hiển thị {(safePage - 1) * pageSize + 1}–{Math.min(safePage * pageSize, rows.length)} trên {rows.length}
+            Hiển thị {(safePage - 1) * pageSize + 1}–{Math.min(safePage * pageSize, bodyRows.length)} trên {bodyRows.length}
           </p>
           <div className="flex items-center gap-1">
             <Button variant="outline" size="sm" disabled={safePage <= 1} onClick={() => setPage(safePage - 1)} className="h-8 w-8 p-0">
