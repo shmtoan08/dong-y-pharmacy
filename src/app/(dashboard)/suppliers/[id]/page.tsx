@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Pencil } from "lucide-react";
 import Link from "next/link";
 import { getSupplier } from "@/features/suppliers/actions";
+import { getSupplierDebt } from "@/features/finance/actions";
+import { SupplierDebtTab } from "./SupplierDebtTab";
 import { listReceipts } from "@/features/inventory/actions";
 import { getSessionUser } from "@/lib/auth";
 import { notFound } from "next/navigation";
@@ -26,7 +28,7 @@ export default async function SupplierDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const [supplier, user] = await Promise.all([getSupplier(id), getSessionUser()]);
+  const [supplier, user, debt] = await Promise.all([getSupplier(id), getSessionUser(), getSupplierDebt(id)]);
   if (!supplier || !user) notFound();
 
   const canEdit = user.role === "admin" || user.role === "practitioner";
@@ -135,31 +137,15 @@ export default async function SupplierDetailPage({
     </Card>
   );
 
+  const canPayDebt = user.role === "admin" || user.role === "practitioner";
   const debtTab = (
-    <div className="grid gap-4 md:grid-cols-3">
-      <Card>
-        <CardContent className="p-4">
-          <p className="text-xs text-stone-500">Tổng tiền đã nhập</p>
-          <p className="mt-1 text-xl font-bold text-stone-900">
-            {totalPurchased.toLocaleString("vi-VN")} đ
-          </p>
-        </CardContent>
-      </Card>
-      <Card>
-        <CardContent className="p-4">
-          <p className="text-xs text-stone-500">Đã thanh toán</p>
-          <p className="mt-1 text-xl font-bold text-stone-400">—</p>
-          <p className="mt-1 text-xs text-stone-400">Chưa có module thanh toán</p>
-        </CardContent>
-      </Card>
-      <Card>
-        <CardContent className="p-4">
-          <p className="text-xs text-stone-500">Công nợ còn lại</p>
-          <p className="mt-1 text-xl font-bold text-stone-400">—</p>
-          <p className="mt-1 text-xs text-stone-400">Chưa có module thanh toán</p>
-        </CardContent>
-      </Card>
-    </div>
+    <SupplierDebtTab
+      supplierId={id}
+      receipts={debt.receipts}
+      totalDebt={debt.total_debt}
+      totalPaid={debt.total_paid}
+      canPay={canPayDebt}
+    />
   );
 
   return (

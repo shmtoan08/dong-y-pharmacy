@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Printer } from "lucide-react";
 import Link from "next/link";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { CreateInvoiceButton } from "./CreateInvoiceButton";
 
 export default async function PrescriptionPage({
   params,
@@ -37,6 +38,9 @@ export default async function PrescriptionPage({
             </Link>
             {canEdit && (
               <RepriseButton prescriptionId={id} prescriptionCode={prescription.prescription_code} />
+            )}
+            {prescription.status === "completed" && canEdit && (
+              <CreateInvoiceButton prescriptionId={id} />
             )}
           </div>
         </div>
