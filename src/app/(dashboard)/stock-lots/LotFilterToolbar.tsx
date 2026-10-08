@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { X } from "lucide-react";
+import type { Supplier } from "@/features/suppliers/actions";
 
 const EXPIRY_OPTIONS = [
   { value: "all", label: "Tất cả HSD" },
@@ -22,27 +23,31 @@ const EXPIRY_OPTIONS = [
   { value: "no_expiry", label: "Không HSD" },
 ];
 
-export function LotFilterToolbar() {
+export function LotFilterToolbar({ suppliers }: { suppliers: Supplier[] }) {
   const router = useRouter();
   const sp = useSearchParams();
   const [q, setQ] = useState(sp.get("q") ?? "");
   const expiry = sp.get("expiry") ?? "all";
+  const supplier = sp.get("supplier") ?? "all";
+  const stock = sp.get("stock") ?? "all";
 
   useEffect(() => {
     const t = setTimeout(() => {
       const params = new URLSearchParams(sp.toString());
       if (q) params.set("q", q);
       else params.delete("q");
+      params.delete("page");
       router.replace(`?${params.toString()}`);
     }, 400);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [q]);
 
-  const setExpiry = (v: string) => {
+  const setParam = (key: string, v: string) => {
     const params = new URLSearchParams(sp.toString());
-    if (v === "all") params.delete("expiry");
-    else params.set("expiry", v);
+    if (v === "all") params.delete(key);
+    else params.set(key, v);
+    params.delete("page");
     router.replace(`?${params.toString()}`);
   };
 
@@ -51,12 +56,12 @@ export function LotFilterToolbar() {
     router.replace("?");
   };
 
-  const hasFilter = q || expiry !== "all";
+  const hasFilter = q || expiry !== "all" || supplier !== "all" || stock !== "all";
 
   return (
     <div className="flex flex-wrap items-end gap-3">
-      <div className="min-w-48 flex-1 space-y-1.5">
-        <Label className="text-xs">Tìm lô / vị thuốc</Label>
+      <div className="min-w-44 flex-1 space-y-1.5">
+        <Label className="text-xs">Tìm kiếm</Label>
         <div className="relative">
           <Input
             value={q}
@@ -77,16 +82,41 @@ export function LotFilterToolbar() {
       </div>
       <div className="space-y-1.5">
         <Label className="text-xs">Hạn sử dụng</Label>
-        <Select value={expiry} onValueChange={setExpiry}>
-          <SelectTrigger className="w-48">
+        <Select value={expiry} onValueChange={(v) => setParam("expiry", v)}>
+          <SelectTrigger className="w-44">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
             {EXPIRY_OPTIONS.map((o) => (
-              <SelectItem key={o.value} value={o.value}>
-                {o.label}
-              </SelectItem>
+              <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
             ))}
+          </SelectContent>
+        </Select>
+      </div>
+      <div className="space-y-1.5">
+        <Label className="text-xs">Nhà cung cấp</Label>
+        <Select value={supplier} onValueChange={(v) => setParam("supplier", v)}>
+          <SelectTrigger className="w-44">
+            <SelectValue placeholder="Tất cả" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Tất cả</SelectItem>
+            {suppliers.map((s) => (
+              <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+      <div className="space-y-1.5">
+        <Label className="text-xs">Tồn kho</Label>
+        <Select value={stock} onValueChange={(v) => setParam("stock", v)}>
+          <SelectTrigger className="w-36">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Tất cả</SelectItem>
+            <SelectItem value="in_stock">Còn hàng</SelectItem>
+            <SelectItem value="out_of_stock">Đã hết</SelectItem>
           </SelectContent>
         </Select>
       </div>

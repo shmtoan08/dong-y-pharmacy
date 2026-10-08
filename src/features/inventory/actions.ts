@@ -54,10 +54,14 @@ export interface LotRow {
   herb_code: string;
   herb_name: string;
   base_unit: string;
+  supplier_id: string | null;
   supplier_name: string | null;
+  receipt_id: string | null;
+  receipt_code: string | null;
   quantity_initial: number;
   quantity_current: number;
   expiry_date: string | null;
+  supplier_lot_code: string | null;
   created_at: string;
 }
 
@@ -211,9 +215,9 @@ export async function confirmReceipt(id: string): Promise<{ error?: string }> {
       for (const it of items) {
         const lotCode = await nextLotCode(tx);
         const { rows: lotRows } = await tx.query<{ id: string }>(
-          `INSERT INTO stock_lots (lot_code, herb_id, supplier_id, quantity_initial, quantity_current, expiry_date, supplier_lot_code)
-           VALUES ($1, $2, $3, $4, $4, $5, $6) RETURNING id`,
-          [lotCode, it.herb_id, supplierId, it.quantity, it.expiry_date, it.supplier_lot_code ?? null],
+          `INSERT INTO stock_lots (lot_code, herb_id, supplier_id, receipt_id, quantity_initial, quantity_current, expiry_date, supplier_lot_code)
+           VALUES ($1, $2, $3, $4, $5, $5, $6, $7) RETURNING id`,
+          [lotCode, it.herb_id, supplierId, id, it.quantity, it.expiry_date, it.supplier_lot_code ?? null],
         );
         await tx.query(
           `UPDATE stock_receipt_items SET lot_id = $1 WHERE id = $2`,
@@ -255,6 +259,8 @@ export async function cancelReceipt(id: string): Promise<{ error?: string }> {
 
 export async function listLots(filter?: {
   herbId?: string;
+  supplierId?: string;
+  stockStatus?: "in_stock" | "out_of_stock";
   expiry?: "expired" | "expiring" | "valid" | "no_expiry";
 }): Promise<LotRow[]> {
   await requireRole("admin", "practitioner", "dispenser");
@@ -263,6 +269,15 @@ export async function listLots(filter?: {
   if (filter?.herbId) {
     params.push(filter.herbId);
     conds.push(`l.herb_id = $${params.length}`);
+  }
+  if (filter?.supplierId) {
+    params.push(filter.supplierId);
+    conds.push(`l.supplier_id = $${params.length}`);
+  }
+  if (filter?.stockStatus === "in_stock") {
+    conds.push(`l.quantity_current > 0`);
+  } else if (filter?.stockStatus === "out_of_stock") {
+    conds.push(`l.quantity_current <= 0`);
   }
   if (filter?.expiry === "expired") {
     conds.push(`l.expiry_date IS NOT NULL AND l.expiry_date < CURRENT_DATE`);
@@ -276,14 +291,141 @@ export async function listLots(filter?: {
   const where = conds.length > 0 ? `WHERE ${conds.join(" AND ")}` : "";
   const { rows } = await db.query<LotRow>(
     `SELECT l.id, l.lot_code, l.herb_id, h.code AS herb_code, h.name_common AS herb_name,
-            h.base_unit, s.name AS supplier_name,
-            l.quantity_initial, l.quantity_current, l.expiry_date, l.created_at
+            h.base_unit, l.supplier_id, s.name AS supplier_name,
+            l.receipt_id, r.receipt_code,
+            l.quantity_initial, l.quantity_current, l.expiry_date, l.supplier_lot_code, l.created_at
      FROM stock_lots l
      JOIN herbs h ON h.id = l.herb_id
      LEFT JOIN suppliers s ON s.id = l.supplier_id
+     LEFT JOIN stock_receipts r ON r.id = l.receipt_id
      ${where}
      ORDER BY l.created_at DESC`,
     params,
+  );
+  return rows;
+}
+
+export interface LotDetail extends LotRow {
+  herb_unit: string;
+  storage_location: string | null;
+  receipt_date: string | null;
+}
+
+export async function getLotDetail(id: string): Promise<LotDetail | null> {
+  await requireRole("admin", "practitioner", "dispenser");
+  const { rows } = await db.query(
+    `SELECT l.id, l.lot_code, l.herb_id, h.code AS herb_code, h.name_common AS herb_name,
+            h.base_unit, h.vi_tri_hoc_tu AS storage_location,
+            l.supplier_id, s.name AS supplier_name,
+            l.receipt_id, r.receipt_code, r.received_at AS receipt_date,
+            l.quantity_initial, l.quantity_current, l.expiry_date,
+            l.supplier_lot_code, l.created_at
+     FROM stock_lots l
+     JOIN herbs h ON h.id = l.herb_id
+     LEFT JOIN suppliers s ON s.id = l.supplier_id
+     LEFT JOIN stock_receipts r ON r.id = l.receipt_id
+     WHERE l.id = $1`,
+    [id],
+  );
+  if (rows.length === 0) return null;
+  return { ...rows[0], herb_unit: rows[0].base_unit } as LotDetail;
+}
+
+/**
+ * Điều chỉnh tồn kho lô (kiểm kê thừa/thiếu).
+ * Cập nhật cả tồn tổng của vị thuốc.
+ */
+export async function adjustLot(
+  lotId: string,
+  newQuantity: number,
+  reason: string,
+): Promise<{ error?: string }> {
+  const user = await requireRole("admin", "practitioner");
+  if (newQuantity < 0) return { error: "Số lượng không được âm" };
+  if (!reason.trim()) return { error: "Vui lòng nhập lý do điều chỉnh" };
+  try {
+    await withTransaction(async (tx) => {
+      const { rows } = await tx.query(
+        `SELECT herb_id, quantity_current FROM stock_lots WHERE id = $1 FOR UPDATE`,
+        [lotId],
+      );
+      if (rows.length === 0) throw new Error("NOT_FOUND");
+      const oldQty = Number(rows[0].quantity_current);
+      const diff = newQuantity - oldQty;
+      await tx.query(`UPDATE stock_lots SET quantity_current = $1 WHERE id = $2`, [
+        newQuantity,
+        lotId,
+      ]);
+      await tx.query(
+        `UPDATE herbs SET stock_quantity = stock_quantity + $1 WHERE id = $2`,
+        [diff, rows[0].herb_id],
+      );
+    });
+  } catch (e) {
+    console.error("[adjustLot] failed:", e);
+    return { error: "Điều chỉnh thất bại, vui lòng thử lại" };
+  }
+  await audit({
+    userId: user.id,
+    action: "lot.adjust",
+    tableName: "stock_lots",
+    rowId: lotId,
+    newValue: { new_quantity: newQuantity, reason },
+  });
+  return {};
+}
+
+/** Hủy/thanh lý lô: đưa tồn về 0 (thuốc hỏng, hết hạn...) */
+export async function discardLot(
+  lotId: string,
+  reason: string,
+): Promise<{ error?: string }> {
+  const user = await requireRole("admin", "practitioner");
+  if (!reason.trim()) return { error: "Vui lòng nhập lý do hủy lô" };
+  try {
+    await withTransaction(async (tx) => {
+      const { rows } = await tx.query(
+        `SELECT herb_id, quantity_current FROM stock_lots WHERE id = $1 FOR UPDATE`,
+        [lotId],
+      );
+      if (rows.length === 0) throw new Error("NOT_FOUND");
+      const qty = Number(rows[0].quantity_current);
+      if (qty > 0) {
+        await tx.query(`UPDATE stock_lots SET quantity_current = 0 WHERE id = $1`, [lotId]);
+        await tx.query(
+          `UPDATE herbs SET stock_quantity = stock_quantity - $1 WHERE id = $2`,
+          [qty, rows[0].herb_id],
+        );
+      }
+    });
+  } catch (e) {
+    console.error("[discardLot] failed:", e);
+    return { error: "Hủy lô thất bại, vui lòng thử lại" };
+  }
+  await audit({
+    userId: user.id,
+    action: "lot.discard",
+    tableName: "stock_lots",
+    rowId: lotId,
+    newValue: { reason },
+  });
+  return {};
+}
+
+/** Lịch sử biến động lô từ audit_logs */
+export async function getLotHistory(lotId: string): Promise<
+  { action: string; created_at: string; user_name: string; new_value: unknown }[]
+> {
+  await requireRole("admin", "practitioner", "dispenser");
+  const { rows } = await db.query<{
+    action: string; created_at: string; user_name: string; new_value: unknown;
+  }>(
+    `SELECT a.action, a.created_at, u.full_name AS user_name, a.new_value
+     FROM audit_logs a
+     LEFT JOIN users u ON u.id = a.user_id
+     WHERE a.table_name = 'stock_lots' AND a.row_id = $1
+     ORDER BY a.created_at DESC`,
+    [lotId],
   );
   return rows;
 }
