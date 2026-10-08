@@ -1,9 +1,34 @@
 export const dynamic = "force-dynamic";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { getRevenueKpi, getRevenueTrend } from "@/features/reports/actions";
+import { Badge } from "@/components/ui/badge";
+import { getRevenueKpi, getRevenueTrend, getPeriodInvoices } from "@/features/reports/actions";
 import { ReportFilterBar } from "../ReportFilterBar";
 import { RevenueChart } from "../ReportCharts";
+import { ReportExportButton } from "../ReportExportButton";
+
+const STATUS_LABEL: Record<string, string> = {
+  unpaid: "Chưa thu",
+  partial: "Thu một phần",
+  paid: "Đã thu đủ",
+  cancelled: "Đã hủy",
+};
+
+async function exportRevenueData(from?: string, to?: string) {
+  "use server";
+  const rows = await getPeriodInvoices(from, to);
+  return {
+    headers: ["Mã HĐ", "Bệnh nhân", "Tổng tiền", "Đã thu", "Trạng thái", "Ngày lập"],
+    rows: rows.map((r) => [
+      r.invoice_code,
+      r.patient_name,
+      String(Math.round(r.total)),
+      String(Math.round(r.paid_total)),
+      STATUS_LABEL[r.status] ?? r.status,
+      new Date(r.created_at).toLocaleDateString("vi-VN"),
+    ]),
+  };
+}
 
 export default async function RevenueReportPage({
   searchParams,
@@ -11,18 +36,23 @@ export default async function RevenueReportPage({
   searchParams: Promise<{ from?: string; to?: string }>;
 }) {
   const sp = await searchParams;
-  const [kpi, trend] = await Promise.all([
+  const [kpi, trend, invoices] = await Promise.all([
     getRevenueKpi(sp.from, sp.to),
     getRevenueTrend(sp.from, sp.to, "day"),
+    getPeriodInvoices(sp.from, sp.to),
   ]);
 
   const fmt = (n: number) => Number(n).toLocaleString("vi-VN") + "đ";
+  const exportFn = exportRevenueData.bind(null, sp.from, sp.to);
 
   return (
     <div className="space-y-4">
-      <div>
-        <h1 className="text-xl font-bold text-stone-900 md:text-2xl">Báo cáo doanh thu</h1>
-        <p className="text-sm text-stone-500">Tổng quan thu chi từ hóa đơn</p>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h1 className="text-xl font-bold text-stone-900 md:text-2xl">Báo cáo doanh thu</h1>
+          <p className="text-sm text-stone-500">Tổng quan thu chi từ hóa đơn</p>
+        </div>
+        <ReportExportButton filename="bao-cao-doanh-thu" getData={exportFn} />
       </div>
 
       <ReportFilterBar basePath="/reports/revenue" />
@@ -70,6 +100,47 @@ export default async function RevenueReportPage({
           ) : (
             <RevenueChart data={trend} />
           )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base">Chi tiết hóa đơn trong kỳ ({invoices.length})</CardTitle>
+        </CardHeader>
+        <CardContent className="p-0">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-stone-200 bg-stone-50 text-left">
+                  <th className="whitespace-nowrap px-4 py-2.5 font-medium text-stone-600">Mã HĐ</th>
+                  <th className="px-4 py-2.5 font-medium text-stone-600">Bệnh nhân</th>
+                  <th className="whitespace-nowrap px-4 py-2.5 font-medium text-stone-600">Ngày lập</th>
+                  <th className="px-4 py-2.5 text-right font-medium text-stone-600">Tổng tiền</th>
+                  <th className="px-4 py-2.5 text-right font-medium text-stone-600">Đã thu</th>
+                  <th className="px-4 py-2.5 font-medium text-stone-600">Trạng thái</th>
+                </tr>
+              </thead>
+              <tbody>
+                {invoices.map((r) => (
+                  <tr key={r.invoice_code} className="border-b border-stone-100 hover:bg-stone-50">
+                    <td className="whitespace-nowrap px-4 py-2.5 font-mono text-xs">{r.invoice_code}</td>
+                    <td className="px-4 py-2.5">{r.patient_name}</td>
+                    <td className="whitespace-nowrap px-4 py-2.5 text-stone-600">
+                      {new Date(r.created_at).toLocaleDateString("vi-VN")}
+                    </td>
+                    <td className="whitespace-nowrap px-4 py-2.5 text-right font-medium">{fmt(r.total)}</td>
+                    <td className="whitespace-nowrap px-4 py-2.5 text-right text-emerald-700">{fmt(r.paid_total)}</td>
+                    <td className="px-4 py-2.5">
+                      <Badge variant="outline">{STATUS_LABEL[r.status] ?? r.status}</Badge>
+                    </td>
+                  </tr>
+                ))}
+                {invoices.length === 0 && (
+                  <tr><td colSpan={6} className="px-4 py-8 text-center text-sm text-stone-500">Chưa có hóa đơn nào.</td></tr>
+                )}
+              </tbody>
+            </table>
+          </div>
         </CardContent>
       </Card>
     </div>

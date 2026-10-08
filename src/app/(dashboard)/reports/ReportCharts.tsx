@@ -31,7 +31,7 @@ export function RevenueChart({ data }: { data: { date: string; revenue: number; 
         <XAxis dataKey="label" tick={{ fontSize: 11 }} />
         <YAxis tickFormatter={fmtShort} tick={{ fontSize: 11 }} />
         <ChartTooltip
-          formatter={(v) => [`${Number(v ?? 0).toLocaleString("vi-VN")}đ`, ""]}
+          formatter={(v, name) => [`${Number(v ?? 0).toLocaleString("vi-VN")}đ`, name]}
           labelFormatter={(l) => `Ngày ${l}`}
         />
         <Legend />

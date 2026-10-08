@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { getTopHerbUsage, getLowStockHerbs } from "@/features/reports/actions";
 import { ReportFilterBar } from "../ReportFilterBar";
+import { ReportExportButton } from "../ReportExportButton";
 
 export default async function HerbsReportPage({
   searchParams,
@@ -19,11 +20,27 @@ export default async function HerbsReportPage({
   const fmtQty = (n: number, unit: string) =>
     `${Number(n).toLocaleString("vi-VN")}${unit ? " " + unit : ""}`;
 
+  const exportFn = async () => {
+    "use server";
+    return {
+      headers: ["Vị thuốc", "Đã xuất", "Tồn hiện tại", "Đơn vị"],
+      rows: usage.map((u) => [
+        u.herb_name,
+        String(Math.round(u.dispensed_qty * 100) / 100),
+        String(Math.round(u.current_stock * 100) / 100),
+        u.unit,
+      ]),
+    };
+  };
+
   return (
     <div className="space-y-4">
-      <div>
-        <h1 className="text-xl font-bold text-stone-900 md:text-2xl">Báo cáo tiêu hao dược liệu</h1>
-        <p className="text-sm text-stone-500">Dựa trên thực tế xuất kho (FEFO)</p>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h1 className="text-xl font-bold text-stone-900 md:text-2xl">Báo cáo tiêu hao dược liệu</h1>
+          <p className="text-sm text-stone-500">Dựa trên thực tế xuất kho (FEFO)</p>
+        </div>
+        <ReportExportButton filename="bao-cao-tieu-hao" getData={exportFn} />
       </div>
 
       <ReportFilterBar basePath="/reports/herbs" />

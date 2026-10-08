@@ -201,3 +201,65 @@ export async function getVisitTrend(from?: string, to?: string, group: "day" | "
   );
   return rows.map((x) => ({ date: x.date, visits: Number(x.visits) }));
 }
+
+
+/* ==================== CHI TIẾT KỲ BÁO CÁO ==================== */
+
+export interface PeriodInvoice {
+  invoice_code: string;
+  patient_name: string;
+  total: number;
+  paid_total: number;
+  status: string;
+  created_at: string;
+}
+
+export async function getPeriodInvoices(from?: string, to?: string): Promise<PeriodInvoice[]> {
+  await requireRole("admin");
+  const r = range(from, to);
+  const { rows } = await db.query(
+    `SELECT i.invoice_code, pt.full_name AS patient_name, i.total,
+            COALESCE((SELECT SUM(pay.amount) FROM payments pay WHERE pay.invoice_id = i.id), 0) AS paid_total,
+            i.status, i.created_at
+     FROM invoices i
+     JOIN prescriptions p ON p.id = i.prescription_id
+     JOIN visits v ON v.id = p.visit_id
+     JOIN patients pt ON pt.id = v.patient_id
+     WHERE i.created_at >= $1 AND i.created_at < $2
+     ORDER BY i.created_at DESC
+     LIMIT 100`,
+    [r.from, r.to],
+  );
+  return rows.map((x) => ({
+    invoice_code: x.invoice_code,
+    patient_name: x.patient_name,
+    total: Number(x.total),
+    paid_total: Number(x.paid_total),
+    status: x.status,
+    created_at: x.created_at,
+  }));
+}
+
+export interface PeriodVisit {
+  visited_at: string;
+  patient_name: string;
+  practitioner_name: string | null;
+  diagnosis: string | null;
+}
+
+export async function getPeriodVisits(from?: string, to?: string): Promise<PeriodVisit[]> {
+  await requireRole("admin");
+  const r = range(from, to);
+  const { rows } = await db.query(
+    `SELECT v.visited_at, pt.full_name AS patient_name,
+            u.full_name AS practitioner_name, v.final_diagnosis AS diagnosis
+     FROM visits v
+     JOIN patients pt ON pt.id = v.patient_id
+     LEFT JOIN users u ON u.id = v.practitioner_id
+     WHERE v.visited_at >= $1 AND v.visited_at < $2
+     ORDER BY v.visited_at DESC
+     LIMIT 100`,
+    [r.from, r.to],
+  );
+  return rows as PeriodVisit[];
+}
