@@ -1,5 +1,3 @@
-import type { Role } from "./auth";
-
 /** Danh sách quyền cố định trong code (client-safe) */
 export const PERMISSIONS = [
   { key: "patients.view", label: "Xem bệnh nhân", group: "Bệnh nhân" },
@@ -35,7 +33,7 @@ export const PERMISSIONS = [
 export type PermissionKey = (typeof PERMISSIONS)[number]["key"];
 
 /** Quyền mặc định cho từng role */
-export const DEFAULT_PERMISSIONS: Record<Exclude<Role, "admin">, PermissionKey[]> = {
+export const DEFAULT_PERMISSIONS: Record<string, PermissionKey[]> = {
   practitioner: [
     "patients.view", "patients.create", "patients.edit",
     "visits.view", "visits.create",
