@@ -47,7 +47,7 @@ export async function getOnlineBookings(
     where += ` AND a.status = 'scheduled' AND a.queue_number IS NULL`;
   } else if (tab === "confirmed") {
     where += ` AND a.status = 'confirmed'`;
-  } else if (tab === "today") {
+  } else if (tab === "today" && !dateFilter) {
     where += ` AND (DATE(a.scheduled_at AT TIME ZONE 'Asia/Ho_Chi_Minh') = $1 OR a.queue_date = $1)
                AND a.status NOT IN ('cancelled', 'rejected', 'completed')`;
     params.push(todayStr);
@@ -57,7 +57,7 @@ export async function getOnlineBookings(
 
   if (dateFilter) {
     params.push(dateFilter);
-    where += ` AND DATE(a.scheduled_at AT TIME ZONE 'Asia/Ho_Chi_Minh') = $${params.length}`;
+    where += ` AND (DATE(a.scheduled_at AT TIME ZONE 'Asia/Ho_Chi_Minh') = $${params.length} OR a.queue_date = $${params.length})`;
   }
 
   if (search?.trim()) {
