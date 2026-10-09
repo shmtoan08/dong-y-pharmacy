@@ -552,7 +552,7 @@ export async function completePrescription(id: string): Promise<ActionState> {
           );
           await tx.query(
             `INSERT INTO stock_lot_movements (lot_id, quantity_change, reason, reference_type, reference_id, created_by)
-             VALUES ($1, $2, 'Xuat thuoc', 'PRESCRIPTION', $3, $4)`,
+             VALUES ($1, $2, 'dispense', 'PRESCRIPTION', $3, $4)`,
             [p.lotId, -p.take, id, user.id],
           );
         }
