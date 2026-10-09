@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useState, useEffect } from "react";
+import { checkInteractionsRealtime, type RealtimeInteraction } from "@/features/prescriptions/interactions-realtime";
 import { useFieldArray, useForm } from "react-hook-form";
 import { Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -67,6 +68,27 @@ export function PrescriptionBuilder({
   const [numPacks, setNumPacks] = useState(1);
   const [loadingTemplate, setLoadingTemplate] = useState(false);
   const items = watch("items") as HerbRow[];
+  const [realtimeIx, setRealtimeIx] = useState<RealtimeInteraction[]>([]);
+
+  // Kiểm tra tương kỵ real-time khi danh sách thuốc thay đổi
+  useEffect(() => {
+    const ids = (items || [])
+      .map((it: any) => it.herb_id)
+      .filter(Boolean);
+    if (ids.length < 2) {
+      setRealtimeIx([]);
+      return;
+    }
+    const t = setTimeout(async () => {
+      try {
+        const result = await checkInteractionsRealtime(ids);
+        setRealtimeIx(result);
+      } catch {
+        // Bỏ qua lỗi
+      }
+    }, 500);
+    return () => clearTimeout(t);
+  }, [JSON.stringify((items || []).map((it: any) => it.herb_id))]);
 
   /** Chọn bài mẫu → nạp các vị thuốc của bài mẫu để gia giảm */
   const handleTemplateChange = async (tid: string) => {
@@ -172,6 +194,21 @@ export function PrescriptionBuilder({
           </div>
         </CardContent>
       </Card>
+
+      {realtimeIx.length > 0 && (
+        <div className="animate-pulse rounded-lg border-2 border-red-600 bg-red-50 p-4">
+          <p className="font-bold text-red-800">⚠️ CẢNH BÁO TƯƠNG KỴ!</p>
+          {realtimeIx.map((ix, i) => (
+            <p key={i} className="mt-1 text-sm text-red-700">
+              <span className="font-medium">{ix.herb_a_name} ⛔ {ix.herb_b_name}</span>
+              {ix.description && <span> — {ix.description}</span>}
+            </p>
+          ))}
+          <p className="mt-2 text-xs text-red-600">
+            Vui lòng xem xét lại đơn thuốc trước khi lưu.
+          </p>
+        </div>
+      )}
 
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">

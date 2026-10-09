@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import { NewReceiptForm } from "./NewReceiptForm";
 import { listSuppliers } from "@/features/suppliers/actions";
 
