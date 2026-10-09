@@ -41,11 +41,13 @@ export function PrescriptionBuilder({
   templates,
   initialTemplateId,
   initialItems,
+  defaultDecoction,
 }: {
   visitId: string;
   templates: TemplateOption[];
   initialTemplateId?: string;
   initialItems?: { herb_name: string; dosage_text: string }[];
+  defaultDecoction?: string;
 }) {
   const [state, formAction] = useActionState(createPrescriptionDraft, {} as ActionState);
   const [templateId, setTemplateId] = useState(initialTemplateId ?? "");
@@ -142,7 +144,25 @@ export function PrescriptionBuilder({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="usage_instruction">Cách sắc / cách dùng</Label>
+            <div className="flex items-center justify-between">
+              <Label htmlFor="usage_instruction">Cách sắc / cách dùng</Label>
+              {defaultDecoction && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    const el = document.getElementById("usage_instruction") as HTMLTextAreaElement;
+                    if (el) {
+                      el.value = defaultDecoction;
+                      el.dispatchEvent(new Event("input", { bubbles: true }));
+                    }
+                  }}
+                >
+                  📋 Thêm hướng dẫn sắc thuốc chuẩn
+                </Button>
+              )}
+            </div>
             <Textarea
               id="usage_instruction"
               name="usage_instruction"

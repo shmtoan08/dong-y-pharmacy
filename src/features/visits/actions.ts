@@ -30,6 +30,7 @@ interface PulseInput {
   hand: string;
   position: string;
   pulse_pattern_id: string | null;
+  pulse_pattern_id_2?: string | null;
   custom_note?: string;
 }
 
@@ -70,7 +71,7 @@ export async function createVisit(
   const d = parsed.data;
 
   // Chỉ lưu các vị trí có chọn mạch hoặc có ghi chú
-  const filled = d.pulses.filter((p) => p.pulse_pattern_id || p.custom_note?.trim());
+  const filled = d.pulses.filter((p) => p.pulse_pattern_id || p.pulse_pattern_id_2 || p.custom_note?.trim());
 
   let visitId: string;
   try {
@@ -96,9 +97,9 @@ export async function createVisit(
       const vid = rows[0].id;
       for (const p of filled) {
         await tx.query(
-          `INSERT INTO visit_pulses (visit_id, hand, position, pulse_pattern_id, custom_note)
-           VALUES ($1, $2, $3, $4, $5)`,
-          [vid, p.hand, p.position, p.pulse_pattern_id, p.custom_note?.trim() || null],
+          `INSERT INTO visit_pulses (visit_id, hand, position, pulse_pattern_id, pulse_pattern_id_2, custom_note)
+           VALUES ($1, $2, $3, $4, $5, $6)`,
+          [vid, p.hand, p.position, p.pulse_pattern_id, p.pulse_pattern_id_2 || null, p.custom_note?.trim() || null],
         );
       }
       return vid;
@@ -181,6 +182,7 @@ export async function getVisitDetail(visitId: string): Promise<VisitDetail | nul
     `SELECT vp.hand, vp.position, pp.name_viet AS pattern_name, vp.custom_note
      FROM visit_pulses vp
      LEFT JOIN pulse_patterns pp ON pp.id = vp.pulse_pattern_id
+     LEFT JOIN pulse_patterns pp2 ON pp2.id = vp.pulse_pattern_id_2
      WHERE vp.visit_id = $1
      ORDER BY vp.hand, vp.position`,
     [visitId],

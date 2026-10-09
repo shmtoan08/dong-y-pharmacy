@@ -7,6 +7,7 @@ export const pulseEntrySchema = z.object({
   hand: z.enum(HANDS),
   position: z.enum(POSITIONS),
   pulse_pattern_id: z.string().uuid().nullable(),
+  pulse_pattern_id_2: z.string().uuid().nullable().optional(),
   custom_note: z.string().max(500).optional(),
 });
 

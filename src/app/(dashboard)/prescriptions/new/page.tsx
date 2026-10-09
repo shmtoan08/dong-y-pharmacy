@@ -38,6 +38,10 @@ export default async function NewPrescriptionPage({
   );
 
   const templates = await getActiveTemplatesForPrescription();
+  const { rows: decoctRows } = await db.query<{ value: string }>(
+    `SELECT value FROM system_settings WHERE key = 'decoction_instructions'`
+  );
+  const defaultDecoction = decoctRows[0]?.value ?? "";
   const initialItems = templateId
     ? await getTemplateItemsForPrescription(templateId)
     : undefined;
@@ -58,6 +62,7 @@ export default async function NewPrescriptionPage({
           templates={templates}
           initialTemplateId={templateId}
           initialItems={initialItems}
+          defaultDecoction={defaultDecoction}
         />
         <VisitSummaryCard
           visit={{

@@ -1,4 +1,4 @@
-import { getPrescriptionSnapshot } from "@/features/prescriptions/actions";
+import { getPrescriptionSnapshot, getPrescription } from "@/features/prescriptions/actions";
 import { notFound } from "next/navigation";
 import { BackButton } from "@/components/shared/BackButton";
 import { PrintButton } from "@/components/shared/PrintButton";
@@ -12,8 +12,39 @@ export default async function PrintPrescriptionPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const snap = await getPrescriptionSnapshot(id);
-  if (!snap) notFound();
+  // Thu snapshot truoc (don da duyet), neu khong co thi dung du lieu draft
+  const snapshot = await getPrescriptionSnapshot(id);
+  let snap;
+  if (snapshot) {
+    snap = snapshot;
+  } else {
+    // Don nhap: lay du lieu hien tai
+    const draft = await getPrescription(id);
+    if (!draft) notFound();
+    snap = {
+      prescriptionCode: draft.prescription_code,
+      visitDate: draft.created_at,
+      confirmedAt: draft.confirmed_at ?? new Date().toISOString(),
+      patient: {
+        name: draft.patient_name,
+        code: draft.patient_code,
+        dob: null,
+        phone: null,
+      },
+      numOfPacks: draft.num_of_packs,
+      items: draft.items.map((it) => ({
+        herbName: it.herb_name,
+        weightPerPack: Number(it.weight_per_pack),
+        totalWeight: Number(it.weight_per_pack) * draft.num_of_packs,
+        note: it.note,
+      })),
+      totalWeightAll: draft.items.reduce((s, it) => s + (Number(it.weight_per_pack) * draft.num_of_packs), 0),
+      usageInstruction: draft.usage_instruction,
+      doctorNotes: draft.doctor_notes,
+      confirmedBy: { name: draft.practitioner_name ?? "" },
+      isDraft: true,
+    };
+  }
 
   const visitDate = new Date(snap.visitDate).toLocaleDateString("vi-VN");
   const confirmedDate = new Date(snap.confirmedAt).toLocaleDateString("vi-VN");
