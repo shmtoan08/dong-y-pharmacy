@@ -181,12 +181,13 @@ export async function POST(req: Request) {
       const apptCode = `LH-${dateStr}-${rand}`;
 
       // Kiem tra slot con trong (chong double-booking)
+      // Chi dem lich cua dung BS duoc gan (bo qua lich cu NULL doctor)
       const { rows: slotCheck } = await tx.query(
         `SELECT COUNT(*) AS cnt FROM appointments
          WHERE DATE(scheduled_at AT TIME ZONE 'Asia/Ho_Chi_Minh') = $1
            AND TO_CHAR(scheduled_at AT TIME ZONE 'Asia/Ho_Chi_Minh', 'HH24:MI') = $2
            AND status IN ('confirmed', 'checked_in')
-           AND ($3::uuid IS NULL OR practitioner_id = $3::uuid OR practitioner_id IS NULL)`,
+           AND practitioner_id = $3::uuid`,
         [date, timeSlot, practitionerId]
       );
       if (parseInt(slotCheck[0].cnt, 10) >= 1) {
@@ -213,7 +214,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ ...result, message: result.duplicate ? "Lịch hẹn đã được tạo trước đó" : "Đặt lịch thành công" });
   } catch (e: any) {
     console.error("Public appointment error:", e.message);
-    const friendly = ["Bác sĩ không hợp lệ", "Khung giờ này đã có người đặt", "Bác sĩ nghỉ", "ngoài giờ làm việc"];
+    const friendly = ["Bác sĩ không hợp lệ", "Khung giờ này đã có người đặt", "Khung giờ này đã hết chỗ", "Bác sĩ nghỉ", "ngoài giờ làm việc", "không làm việc ngày này"];
     const msg = friendly.some((f) => e.message?.includes(f)) ? e.message : "Lỗi hệ thống, vui lòng thử lại";
     return NextResponse.json({ error: msg }, { status: 500 });
   }
