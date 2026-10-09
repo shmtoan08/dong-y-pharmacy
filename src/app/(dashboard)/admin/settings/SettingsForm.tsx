@@ -23,10 +23,6 @@ export function SettingsForm({ initial }: { initial: ClinicSettings }) {
   };
 
   const onSave = async () => {
-    if (!form.clinic_name.trim()) {
-      setError("Tên phòng khám không được để trống.");
-      return;
-    }
     setSaving(true);
     const res = await updateSettings(form);
     setSaving(false);
@@ -63,6 +59,18 @@ export function SettingsForm({ initial }: { initial: ClinicSettings }) {
               <Label>Email</Label>
               <Input value={form.clinic_email} onChange={set("clinic_email")}
                 placeholder="VD: info@phongkham.vn" />
+            </div>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="space-y-1.5">
+              <Label>Số giấy phép</Label>
+              <Input value={form.clinic_license_number} onChange={set("clinic_license_number")}
+                placeholder="VD: 123/GP-SYT" />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Người phụ trách chuyên môn</Label>
+              <Input value={form.clinic_manager} onChange={set("clinic_manager")}
+                placeholder="VD: BS. Nguyễn Văn A" />
             </div>
           </div>
         </CardContent>
