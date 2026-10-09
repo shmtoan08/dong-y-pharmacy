@@ -43,7 +43,7 @@ export function WeekRibbon({
 
   return (
     <div className="rounded-xl border bg-white p-3 shadow-sm">
-      <div className="mb-2 flex items-center justify-between">
+      <div className="mb-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <p className="text-sm font-semibold">📊 Mật độ lịch hẹn</p>
         <div className="flex gap-1">
           <Button size="sm" variant="outline" onClick={() => setWeekOffset((o) => o - 1)}>
@@ -63,7 +63,7 @@ export function WeekRibbon({
       {loading ? (
         <p className="py-4 text-center text-sm text-stone-400">Đang tải...</p>
       ) : (
-        <div className="grid grid-cols-7 gap-1.5 overflow-x-auto">
+        <div className="flex gap-1.5 overflow-x-auto pb-1 sm:grid sm:grid-cols-7">
           {days.map((d) => {
             const dt = new Date(d.date + "T00:00:00");
             const isToday = d.date === toISODate(new Date());
@@ -76,7 +76,7 @@ export function WeekRibbon({
                 key={d.date}
                 onClick={() => !d.isSunday && onSelect(d.date)}
                 disabled={d.isSunday}
-                className={`rounded-lg border-2 p-2 text-center transition ${
+                className={`min-w-[76px] flex-1 rounded-lg border-2 p-2 text-center transition ${
                   isSelected
                     ? "border-emerald-600 ring-2 ring-emerald-200"
                     : "border-transparent"
@@ -100,7 +100,7 @@ export function WeekRibbon({
         </div>
       )}
 
-      <div className="mt-2 flex gap-3 text-xs text-stone-500">
+      <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs text-stone-500">
         <span>🟢 Dưới 8 ca: còn trống</span>
         <span>🟡 8-15 ca: sắp đầy</span>
         <span>🔴 Trên 15 ca: kín</span>

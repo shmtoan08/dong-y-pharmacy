@@ -65,8 +65,9 @@ export default async function AppointmentsPage({
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <AppointmentsWeekRibbon selectedDate={date} />
+
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           {statCards.map((s) => (
             <Card key={s.label}>
               <CardContent className="p-4">

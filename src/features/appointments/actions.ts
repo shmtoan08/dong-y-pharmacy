@@ -7,7 +7,7 @@ import { nextPatientCode } from "@/features/patients/actions";
 
 /* ==================== LỊCH HẸN ==================== */
 
-export type AppointmentStatus = "scheduled" | "checked_in" | "completed" | "cancelled" | "no_show";
+export type AppointmentStatus = "scheduled" | "confirmed" | "checked_in" | "completed" | "cancelled" | "no_show";
 
 export interface AppointmentRow {
   id: string;
@@ -67,7 +67,7 @@ export async function getTodayStats(date: string): Promise<Record<AppointmentSta
     [date],
   );
   const stats: Record<AppointmentStatus, number> = {
-    scheduled: 0, checked_in: 0, completed: 0, cancelled: 0, no_show: 0,
+    scheduled: 0, confirmed: 0, checked_in: 0, completed: 0, cancelled: 0, no_show: 0,
   };
   for (const r of rows) stats[r.status as AppointmentStatus] = Number(r.c);
   return stats;
