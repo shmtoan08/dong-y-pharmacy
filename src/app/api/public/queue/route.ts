@@ -133,6 +133,12 @@ export async function POST(req: Request) {
       );
       if (found.length > 0) {
         patientId = found[0].id;
+        // Cap nhat thong tin thieu (nam sinh/gioi tinh) neu benh nhan bo sung
+        await tx.query(
+          `UPDATE patients SET date_of_birth = COALESCE(date_of_birth, $2), sex = COALESCE(sex, $3)
+           WHERE id = $1`,
+          [patientId, `${by}-01-01`, gender]
+        );
       } else {
         const dStr = new Date().toISOString().slice(0, 10);
         const { rows: seq } = await tx.query(`SELECT next_daily_n($1, 'patient') AS n`, [dStr]);
