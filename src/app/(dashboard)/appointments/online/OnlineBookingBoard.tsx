@@ -81,6 +81,14 @@ export function OnlineBookingBoard({
     router.push(`/appointments/online?${params.toString()}`);
   }
 
+  function fmtDateVN(d: string | null): string {
+    if (!d) return "";
+    // queue_date co the la "2026-10-09" hoac ISO string
+    const dateOnly = d.slice(0, 10);
+    const [y, m, day] = dateOnly.split("-");
+    return `${day}/${m}/${y}`;
+  }
+
   function fmtDateTime(iso: string) {
     const d = new Date(iso);
     return d.toLocaleString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh" });
@@ -150,7 +158,7 @@ export function OnlineBookingBoard({
                     </p>
                     <p className="text-sm text-stone-500">
                       {b.booking_type === "queue"
-                        ? `Số thứ tự: ${b.queue_number} • Ngày ${b.queue_date}`
+                        ? `Số thứ tự: ${b.queue_number} • Ngày ${fmtDateVN(b.queue_date)}`
                         : fmtDateTime(b.scheduled_at)}
                       {b.doctor_name && ` • BS: ${b.doctor_name}`}
                     </p>
