@@ -1,5 +1,7 @@
+export const dynamic = "force-dynamic";
+
 import { NextResponse } from "next/server";
-import { withTransaction } from "@/lib/db";
+import { withTransaction, db } from "@/lib/db";
 
 function checkApiKey(req: Request): boolean {
   const key = req.headers.get("authorization")?.replace("Bearer ", "");
@@ -7,6 +9,12 @@ function checkApiKey(req: Request): boolean {
   if (!expected || !key) return false;
   return key === expected;
 }
+
+// Các slot hợp lệ: 08:00-10:30 sáng, 14:00-16:00 chiều, mỗi 30 phút
+const VALID_SLOTS = [
+  "08:00", "08:30", "09:00", "09:30", "10:00", "10:30",
+  "14:00", "14:30", "15:00", "15:30", "16:00",
+];
 
 // POST /api/public/appointments — tạo lịch hẹn từ web booking
 export async function POST(req: Request) {
@@ -21,17 +29,26 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
 
-  const { date, timeSlot, doctorId, patientName, phone, symptom, idempotencyKey } = body;
+  const { date, timeSlot, doctorId, patientName, phone, birthYear, gender, symptom, idempotencyKey } = body;
 
   if (!date || !timeSlot || !patientName?.trim() || !phone?.trim()) {
     return NextResponse.json({ error: "Thiếu thông tin bắt buộc" }, { status: 400 });
   }
-  if (!["morning", "afternoon"].includes(timeSlot)) {
+  if (!VALID_SLOTS.includes(timeSlot)) {
     return NextResponse.json({ error: "Khung giờ không hợp lệ" }, { status: 400 });
   }
   const phoneClean = phone.replace(/\D/g, "");
   if (!/^0\d{9}$/.test(phoneClean)) {
     return NextResponse.json({ error: "SĐT không hợp lệ" }, { status: 400 });
+  }
+  // Năm sinh: 1900 - năm hiện tại
+  const by = parseInt(birthYear, 10);
+  const curYear = new Date().getFullYear();
+  if (!by || by < 1900 || by > curYear) {
+    return NextResponse.json({ error: "Năm sinh không hợp lệ" }, { status: 400 });
+  }
+  if (!["male", "female"].includes(gender)) {
+    return NextResponse.json({ error: "Giới tính không hợp lệ" }, { status: 400 });
   }
 
   const apptDate = new Date(date + "T00:00:00+07:00");
@@ -51,7 +68,6 @@ export async function POST(req: Request) {
 
   try {
     const result = await withTransaction(async (tx) => {
-      // Idempotency
       if (idempotencyKey) {
         const { rows: existing } = await tx.query(
           `SELECT appointment_code FROM appointments WHERE idempotency_key = $1`,
@@ -70,18 +86,19 @@ export async function POST(req: Request) {
       );
       if (found.length > 0) {
         patientId = found[0].id;
-      } else {
-        // Tạo mã BN: BN-YYYYMMDD-XXX
-        const todayStr = new Date().toISOString().slice(0, 10);
-        const { rows: seqRows } = await tx.query(
-          `SELECT next_daily_n($1, 'patient') AS n`,
-          [todayStr]
+        // Cập nhật năm sinh/giới tính nếu chưa có
+        await tx.query(
+          `UPDATE patients SET date_of_birth = COALESCE(date_of_birth, $2), sex = COALESCE(sex, $3) WHERE id = $1`,
+          [patientId, `${by}-01-01`, gender]
         );
-        const seqN = seqRows[0].n;
-        const ptCode = `BN-${todayStr.replace(/-/g, "")}-${String(seqN).padStart(3, "0")}`;
+      } else {
+        const todayStr = new Date().toISOString().slice(0, 10);
+        const { rows: seqRows } = await tx.query(`SELECT next_daily_n($1, 'patient') AS n`, [todayStr]);
+        const ptCode = `BN-${todayStr.replace(/-/g, "")}-${String(seqRows[0].n).padStart(3, "0")}`;
         const { rows: newPt } = await tx.query(
-          `INSERT INTO patients (patient_code, full_name, phone) VALUES ($1, $2, $3) RETURNING id`,
-          [ptCode, patientName.trim(), phoneClean]
+          `INSERT INTO patients (patient_code, full_name, phone, date_of_birth, sex)
+           VALUES ($1, $2, $3, $4, $5) RETURNING id`,
+          [ptCode, patientName.trim(), phoneClean, `${by}-01-01`, gender]
         );
         patientId = newPt[0].id;
       }
@@ -99,8 +116,7 @@ export async function POST(req: Request) {
         doctorName = doc[0].full_name;
       }
 
-      const hour = timeSlot === "morning" ? "08:00" : "14:00";
-      const scheduledAt = `${date}T${hour}:00+07:00`;
+      const scheduledAt = `${date}T${timeSlot}:00+07:00`;
       const dateStr = date.replace(/-/g, "");
       const rand = Math.random().toString(36).substring(2, 6).toUpperCase();
       const apptCode = `LH-${dateStr}-${rand}`;
@@ -116,7 +132,7 @@ export async function POST(req: Request) {
       return {
         appointmentCode: appt[0].appointment_code,
         date,
-        timeSlot: timeSlot === "morning" ? "Sáng (8h-11h)" : "Chiều (14h-17h)",
+        timeSlot,
         doctorName,
         duplicate: false,
       };
@@ -129,3 +145,5 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: msg }, { status: 500 });
   }
 }
+
+// GET /api/public/appointments/lookup?phone=... — tra cứu lịch hẹn theo SĐT

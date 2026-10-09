@@ -15,7 +15,7 @@ export async function GET(req: Request) {
   }
 
   const { rows } = await db.query(
-    `SELECT id, full_name AS name
+    `SELECT id, full_name AS name, COALESCE(specialty, 'Đa khoa') AS specialty
      FROM users
      WHERE role = 'practitioner' AND is_active = true
      ORDER BY full_name`
@@ -25,7 +25,13 @@ export async function GET(req: Request) {
     doctors: rows.map((r: any) => ({
       id: r.id,
       name: r.name,
+      specialty: r.specialty,
       acceptingBookings: true,
     })),
   });
+}
+
+// GET /api/public/clinic-info — thông tin phòng khám public (hotline, giờ, giấy phép)
+export async function POST(req: Request) {
+  return NextResponse.json({ error: "Use GET" }, { status: 405 });
 }
