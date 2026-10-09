@@ -27,35 +27,67 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: "Ngày không hợp lệ" }, { status: 400 });
   }
 
-  // Bac si bat buoc phai chon cu the (khong con "bat ky")
-  if (!doctorId) {
-    return NextResponse.json({ error: "Vui lòng chọn bác sĩ", slots: [], working: false }, { status: 400 });
+  // Lay danh sach BS can xet
+  let doctorIds: string[] = [];
+  if (doctorId) {
+    doctorIds = [doctorId];
+  } else {
+    // "Bac si bat ky": tat ca BS dang active
+    const { rows: docs } = await db.query(
+      `SELECT id FROM users WHERE role = 'practitioner' AND is_active = true`
+    );
+    doctorIds = docs.map((r) => r.id);
   }
 
-  // Kiem tra lich lam viec
-  const wh = await getWorkingHours(doctorId, date);
-  if (!wh.working) {
-    return NextResponse.json({ slots: [], working: false, reason: wh.reason });
+  if (doctorIds.length === 0) {
+    return NextResponse.json({ slots: [], working: false, reason: "Chưa có bác sĩ" });
   }
 
+  // Kiem tra lich lam viec tung BS, gom slots
+  const allSlots = new Set<string>();
+  const workingDoctors: string[] = [];
+  for (const did of doctorIds) {
+    const wh = await getWorkingHours(did, date);
+    if (wh.working) {
+      workingDoctors.push(did);
+      wh.slots.forEach((s) => allSlots.add(s));
+    }
+  }
+
+  if (workingDoctors.length === 0) {
+    return NextResponse.json({ slots: [], working: false, reason: "Bác sĩ không làm việc ngày này" });
+  }
+
+  // Dem slot da dat (theo tung BS neu chon cu the, hoac tong hop neu bat ky)
   const { rows } = await db.query(
-    `SELECT TO_CHAR(scheduled_at AT TIME ZONE 'Asia/Ho_Chi_Minh', 'HH24:MI') AS slot, COUNT(*) AS cnt
+    `SELECT TO_CHAR(scheduled_at AT TIME ZONE 'Asia/Ho_Chi_Minh', 'HH24:MI') AS slot,
+            practitioner_id, COUNT(*) AS cnt
      FROM appointments
      WHERE DATE(scheduled_at AT TIME ZONE 'Asia/Ho_Chi_Minh') = $1
        AND status IN ('scheduled', 'confirmed', 'checked_in')
-       AND practitioner_id = $2::uuid
-     GROUP BY slot`,
-    [date, doctorId]
+       AND practitioner_id = ANY($2::uuid[])
+     GROUP BY slot, practitioner_id`,
+    [date, workingDoctors]
   );
 
-  const booked: Record<string, number> = {};
-  for (const r of rows) booked[r.slot] = parseInt(r.cnt, 10);
-
-  const slots = wh.slots.map((s) => ({
-    time: s,
-    available: (booked[s] || 0) < 1,
-    bookedCount: booked[s] || 0,
-  }));
+  // Voi "bat ky": slot available neu con it nhat 1 BS trong
+  // Voi cu the: slot available neu BS do trong
+  const slots = [...allSlots].sort().map((s) => {
+    let available = false;
+    let bookedCount = 0;
+    for (const did of workingDoctors) {
+      const r = rows.find((x) => x.slot === s && x.practitioner_id === did);
+      const cnt = r ? parseInt(r.cnt, 10) : 0;
+      bookedCount += cnt;
+      if (cnt < 1) available = true; // con BS trong
+      if (doctorId && did === doctorId) {
+        available = cnt < 1;
+        bookedCount = cnt;
+        break;
+      }
+    }
+    return { time: s, available, bookedCount };
+  });
 
   return NextResponse.json({ slots, working: true });
 }

@@ -73,9 +73,7 @@ export async function POST(req: Request) {
   if (isNaN(apptDate.getTime()) || apptDate < today) {
     return NextResponse.json({ error: "Ngày không hợp lệ" }, { status: 400 });
   }
-  if (apptDate.getDay() === 0) {
-    return NextResponse.json({ error: "Phòng khám nghỉ Chủ nhật" }, { status: 400 });
-  }
+  // Khong check cung CN nua - lich lam viec cua tung BS da xu ly
   const maxDate = new Date(today);
   maxDate.setDate(maxDate.getDate() + 30);
   if (apptDate > maxDate) {
@@ -132,7 +130,7 @@ export async function POST(req: Request) {
 
       // Kiểm tra bác sĩ
       let practitionerId: string | null = null;
-      let doctorName = "Bác sĩ bất kỳ";
+      let doctorName = "";
       if (doctorId) {
         const { rows: doc } = await tx.query(
           `SELECT id, full_name FROM users WHERE id = $1 AND role = 'practitioner' AND is_active = true`,
@@ -141,6 +139,31 @@ export async function POST(req: Request) {
         if (doc.length === 0) throw new Error("Bác sĩ không hợp lệ");
         practitionerId = doc[0].id;
         doctorName = doc[0].full_name;
+      } else {
+        // "Bac si bat ky": tu dong gan BS dang ranh slot nay
+        const { rows: docs } = await tx.query(
+          `SELECT id, full_name FROM users WHERE role = 'practitioner' AND is_active = true ORDER BY full_name`
+        );
+        let assigned = false;
+        for (const doc of docs) {
+          const wh = await getWorkingHours(doc.id, date);
+          if (!wh.working || !wh.slots.includes(timeSlot)) continue;
+          const { rows: chk } = await tx.query(
+            `SELECT COUNT(*) AS cnt FROM appointments
+             WHERE practitioner_id = $1
+               AND DATE(scheduled_at AT TIME ZONE 'Asia/Ho_Chi_Minh') = $2
+               AND TO_CHAR(scheduled_at AT TIME ZONE 'Asia/Ho_Chi_Minh', 'HH24:MI') = $3
+               AND status IN ('scheduled', 'confirmed', 'checked_in')`,
+            [doc.id, date, timeSlot]
+          );
+          if (parseInt(chk[0].cnt, 10) < 1) {
+            practitionerId = doc.id;
+            doctorName = doc.full_name;
+            assigned = true;
+            break;
+          }
+        }
+        if (!assigned) throw new Error("Khung giờ này đã hết chỗ");
       }
 
       // Kiem tra bac si co lam viec ngay nay khong
