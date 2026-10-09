@@ -23,14 +23,14 @@ export async function GET(req: Request) {
   }
 
   const { rows } = await db.query(
-    `SELECT a.appointment_code, a.scheduled_at, a.status,
+    `SELECT a.appointment_code, a.scheduled_at, a.status, a.reject_reason,
             COALESCE(u.full_name, 'Bác sĩ bất kỳ') AS doctor_name
      FROM appointments a
      JOIN patients p ON p.id = a.patient_id
      LEFT JOIN users u ON u.id = a.practitioner_id
      WHERE REPLACE(REPLACE(p.phone, ' ', ''), '.', '') = $1
        AND a.scheduled_at >= NOW() - INTERVAL '1 day'
-       AND a.status IN ('scheduled', 'checked_in')
+       AND a.status IN ('scheduled', 'confirmed', 'checked_in', 'rejected')
      ORDER BY a.scheduled_at
      LIMIT 10`,
     [phone]
@@ -41,6 +41,7 @@ export async function GET(req: Request) {
       code: r.appointment_code,
       scheduledAt: r.scheduled_at,
       status: r.status,
+      rejectReason: r.reject_reason,
       doctorName: r.doctor_name,
     })),
   });

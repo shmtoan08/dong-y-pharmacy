@@ -59,7 +59,7 @@ export async function GET(req: Request) {
   // Số người đang chờ (scheduled + có queue_number, chưa hủy)
   const { rows: waiting } = await db.query(
     `SELECT COUNT(*) AS cnt FROM appointments
-     WHERE queue_date = $1 AND status = 'scheduled' AND queue_number IS NOT NULL`,
+     WHERE queue_date = $1 AND status IN ('scheduled', 'confirmed') AND queue_number IS NOT NULL`,
     [todayStr]
   );
   const waitingCount = parseInt(waiting[0].cnt, 10);
@@ -79,7 +79,7 @@ export async function GET(req: Request) {
   // Số tiếp theo sẽ được gọi (số chờ nhỏ nhất)
   const { rows: next } = await db.query(
     `SELECT MIN(queue_number) AS next_num FROM appointments
-     WHERE queue_date = $1 AND status = 'scheduled' AND queue_number IS NOT NULL`,
+     WHERE queue_date = $1 AND status IN ('scheduled', 'confirmed') AND queue_number IS NOT NULL`,
     [todayStr]
   );
   const nextNumber = next[0].next_num ? parseInt(next[0].next_num, 10) : null;

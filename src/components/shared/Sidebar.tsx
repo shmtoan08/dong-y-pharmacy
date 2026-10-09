@@ -11,6 +11,7 @@ import {
   UserCog,
   Leaf,
   CalendarClock,
+  Globe,
   FileText,
   Package,
   ClipboardCheck,
@@ -35,6 +36,7 @@ interface MenuItem {
   permission?: string;
   comingSoon?: boolean;
   section?: string;
+  badge?: string;
 }
 
 const MENU: MenuItem[] = [
@@ -42,6 +44,7 @@ const MENU: MenuItem[] = [
   { href: "/", label: "Bảng điều khiển", icon: Home, section: "Tổng quan" },
   // Khám chữa bệnh
   { href: "/appointments", label: "Tiếp đón & Lịch hẹn", icon: CalendarClock, permission: "appointments.view", section: "Khám chữa bệnh" },
+  { href: "/appointments/online", label: "Đặt lịch online", icon: Globe, permission: "appointments.view", section: "Khám chữa bệnh", badge: "pendingBookings" },
   { href: "/visits", label: "Khám bệnh & Bệnh án", icon: Stethoscope, permission: "visits.view", section: "Khám chữa bệnh" },
   { href: "/patients", label: "Hồ sơ bệnh nhân", icon: Users, permission: "patients.view", section: "Khám chữa bệnh" },
   { href: "/prescriptions", label: "Kê đơn & Bốc thuốc", icon: FileText, permission: "prescriptions.view", section: "Khám chữa bệnh" },
@@ -76,6 +79,14 @@ export function Sidebar({
   const pathname = usePathname();
   const items = MENU.filter((m) => !m.permission || permissions.includes(m.permission));
   const [comingSoonLabel, setComingSoonLabel] = useState<string | null>(null);
+  const [pendingCount, setPendingCount] = useState(0);
+
+  useEffect(() => {
+    fetch("/api/internal/pending-bookings")
+      .then((r) => r.json())
+      .then((d) => setPendingCount(d.count || 0))
+      .catch(() => {});
+  }, []);
 
   // Menu active = menu nguoi dung bam chon (luu sessionStorage),
   // khong tu doi khi bam link ben trong trang. Chi doi khi chon menu khac.
@@ -122,6 +133,11 @@ export function Sidebar({
             <>
               <Icon className="h-4 w-4 shrink-0" />
               <span className="flex-1">{item.label}</span>
+              {item.badge === "pendingBookings" && pendingCount > 0 && (
+                <Badge className="bg-red-500 text-[10px] text-white hover:bg-red-500">
+                  {pendingCount}
+                </Badge>
+              )}
               {item.comingSoon && (
                 <Badge
                   variant="secondary"

@@ -29,7 +29,7 @@ export async function getTodayQueue(): Promise<QueueItem[]> {
      FROM appointments a
      JOIN patients p ON p.id = a.patient_id
      WHERE a.queue_date = $1 AND a.queue_number IS NOT NULL
-       AND a.status IN ('scheduled', 'checked_in')
+       AND a.status IN ('scheduled', 'confirmed', 'checked_in')
      ORDER BY a.queue_number`,
     [todayStr]
   );
@@ -55,7 +55,7 @@ export async function callNextNumber(queueNumber: number) {
     // Gọi số mới
     const { rowCount } = await tx.query(
       `UPDATE appointments SET status = 'checked_in'
-       WHERE queue_date = $1 AND queue_number = $2 AND status = 'scheduled'`,
+       WHERE queue_date = $1 AND queue_number = $2 AND status IN ('scheduled', 'confirmed')`,
       [todayStr, queueNumber]
     );
     if (rowCount === 0) throw new Error("Số không hợp lệ hoặc đã được gọi");

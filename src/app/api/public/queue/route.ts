@@ -108,7 +108,7 @@ export async function POST(req: Request) {
         const { rows } = await tx.query(
           `SELECT a.id FROM appointments a
            JOIN patients p ON p.id = a.patient_id
-           WHERE a.queue_date = $1 AND a.status IN ('scheduled', 'checked_in')
+           WHERE a.queue_date = $1 AND a.status IN ('scheduled', 'confirmed', 'checked_in')
              AND a.queue_number IS NOT NULL
              AND p.patient_code = $2
            LIMIT 1`,
@@ -119,7 +119,7 @@ export async function POST(req: Request) {
         const { rows } = await tx.query(
           `SELECT a.id FROM appointments a
            JOIN patients p ON p.id = a.patient_id
-           WHERE a.queue_date = $1 AND a.status IN ('scheduled', 'checked_in')
+           WHERE a.queue_date = $1 AND a.status IN ('scheduled', 'confirmed', 'checked_in')
              AND a.queue_number IS NOT NULL
              AND REPLACE(REPLACE(p.phone, ' ', ''), '.', '') = $2
              AND p.full_name ILIKE $3
@@ -188,17 +188,18 @@ export async function POST(req: Request) {
       // Tạo lịch hẹn với số thứ tự
       const rand = Math.random().toString(36).substring(2, 6).toUpperCase();
       const apptCode = `LH-${todayStr.replace(/-/g, "")}-${rand}`;
+      // Boc so tu dong xac nhan (confirmed) - khong can le tan duyet
       await tx.query(
         `INSERT INTO appointments
-           (patient_id, scheduled_at, status, source, note, idempotency_key, appointment_code, queue_number, queue_date)
-         VALUES ($1, NOW(), 'scheduled', 'online', $2, $3, $4, $5, $6)`,
+           (patient_id, scheduled_at, status, source, note, idempotency_key, appointment_code, queue_number, queue_date, confirmed_at)
+         VALUES ($1, NOW(), 'confirmed', 'online', $2, $3, $4, $5, $6, NOW())`,
         [patientId, symptom?.trim()?.slice(0, 500) || null, idempotencyKey || null, apptCode, nextNum, todayStr]
       );
 
       // Đếm số người chờ trước
       const { rows: wc } = await tx.query(
         `SELECT COUNT(*) AS cnt FROM appointments
-         WHERE queue_date = $1 AND status = 'scheduled' AND queue_number < $2`,
+         WHERE queue_date = $1 AND status = 'confirmed' AND queue_number < $2`,
         [todayStr, nextNum]
       );
 
