@@ -12,6 +12,7 @@ import { QuickCollectButton } from "./QuickCollectButton";
 import { PageSizeSelect } from "../../visits/PageSizeSelect";
 import { Tooltip, TooltipProvider } from "@/components/ui/tooltip";
 import { getSessionUser } from "@/lib/auth";
+import { requirePermission } from "@/lib/permissions-server";
 
 const PAGE_SIZE = 10;
 
@@ -41,6 +42,7 @@ export default async function InvoicesPage({
 }: {
   searchParams: Promise<{ q?: string; status?: string; time?: string; from?: string; to?: string; method?: string; page?: string; pageSize?: string }>;
 }) {
+  await requirePermission("finance.invoices.view");
   const sp = await searchParams;
   const tr = timeRange(sp.time, sp.from, sp.to);
   const [rows, kpi, user] = await Promise.all([
