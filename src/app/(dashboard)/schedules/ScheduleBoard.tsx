@@ -17,10 +17,11 @@ const DAY_NAMES = ["Chủ nhật", "Thứ 2", "Thứ 3", "Thứ 4", "Thứ 5", "
 const DAY_ORDER = [1, 2, 3, 4, 5, 6, 0];
 
 export function ScheduleBoard({
-  initialWeekly, initialDayOffs,
+  initialWeekly, initialDayOffs, density,
 }: {
   initialWeekly: WeeklyScheduleRow[];
   initialDayOffs: DayOffRow[];
+  density: Record<number, number>;
 }) {
   const router = useRouter();
   const [weekly, setWeekly] = useState<WeeklyScheduleRow[]>(() => {
@@ -32,6 +33,8 @@ export function ScheduleBoard({
       morning_end: dow !== 0 ? "11:30" : null,
       afternoon_start: dow !== 0 ? "14:00" : null,
       afternoon_end: dow !== 0 ? "17:00" : null,
+      evening_start: null,
+      evening_end: null,
     });
   });
   const [dayOffs, setDayOffs] = useState(initialDayOffs);
@@ -110,22 +113,42 @@ export function ScheduleBoard({
                   <input type="checkbox" checked={r.is_working}
                     onChange={(e) => updateRow(r.day_of_week, "is_working", e.target.checked)}
                     className="h-4 w-4" />
-                  {DAY_NAMES[r.day_of_week]}
+                  <span>
+                    {DAY_NAMES[r.day_of_week]}
+                    {(density[r.day_of_week] || 0) > 0 && (
+                      <span className="ml-1 rounded-full bg-blue-100 px-2 py-0.5 text-xs text-blue-700">
+                        {density[r.day_of_week]} ca
+                      </span>
+                    )}
+                  </span>
                 </label>
                 {r.is_working ? (
-                  <div className="flex flex-wrap items-center gap-2 text-sm">
-                    <span className="text-stone-500">Sáng:</span>
-                    <Input type="time" value={r.morning_start || ""} className="w-28"
-                      onChange={(e) => updateRow(r.day_of_week, "morning_start", e.target.value || null)} />
-                    <span>–</span>
-                    <Input type="time" value={r.morning_end || ""} className="w-28"
-                      onChange={(e) => updateRow(r.day_of_week, "morning_end", e.target.value || null)} />
-                    <span className="ml-2 text-stone-500">Chiều:</span>
-                    <Input type="time" value={r.afternoon_start || ""} className="w-28"
-                      onChange={(e) => updateRow(r.day_of_week, "afternoon_start", e.target.value || null)} />
-                    <span>–</span>
-                    <Input type="time" value={r.afternoon_end || ""} className="w-28"
-                      onChange={(e) => updateRow(r.day_of_week, "afternoon_end", e.target.value || null)} />
+                  <div className="w-full space-y-2 text-sm">
+                    <div className="flex items-center gap-2">
+                      <span className="w-14 shrink-0 text-stone-500">☀️ Sáng:</span>
+                      <Input type="time" value={r.morning_start || ""} className="w-32"
+                        onChange={(e) => updateRow(r.day_of_week, "morning_start", e.target.value || null)} />
+                      <span>–</span>
+                      <Input type="time" value={r.morning_end || ""} className="w-32"
+                        onChange={(e) => updateRow(r.day_of_week, "morning_end", e.target.value || null)} />
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="w-14 shrink-0 text-stone-500">🌤️ Chiều:</span>
+                      <Input type="time" value={r.afternoon_start || ""} className="w-32"
+                        onChange={(e) => updateRow(r.day_of_week, "afternoon_start", e.target.value || null)} />
+                      <span>–</span>
+                      <Input type="time" value={r.afternoon_end || ""} className="w-32"
+                        onChange={(e) => updateRow(r.day_of_week, "afternoon_end", e.target.value || null)} />
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="w-14 shrink-0 text-stone-500">🌙 Tối:</span>
+                      <Input type="time" value={(r as any).evening_start || ""} className="w-32"
+                        onChange={(e) => updateRow(r.day_of_week, "evening_start" as any, e.target.value || null)} />
+                      <span>–</span>
+                      <Input type="time" value={(r as any).evening_end || ""} className="w-32"
+                        onChange={(e) => updateRow(r.day_of_week, "evening_end" as any, e.target.value || null)} />
+                      <span className="text-xs text-stone-400">(để trống nếu không làm)</span>
+                    </div>
                   </div>
                 ) : (
                   <span className="text-sm text-stone-400">Nghỉ</span>

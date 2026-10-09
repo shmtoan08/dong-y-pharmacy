@@ -3,7 +3,7 @@
 import { db } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
-import { countBookingsOnDate } from "./service";
+import { countBookingsOnDate, getWeeklyBookingDensity } from "./service";
 
 export interface WeeklyScheduleRow {
   day_of_week: number;
@@ -12,6 +12,8 @@ export interface WeeklyScheduleRow {
   morning_end: string | null;
   afternoon_start: string | null;
   afternoon_end: string | null;
+  evening_start?: string | null;
+  evening_end?: string | null;
 }
 
 export interface DayOffRow {
@@ -29,7 +31,9 @@ export async function getMyWeeklySchedule(): Promise<WeeklyScheduleRow[]> {
             TO_CHAR(morning_start, 'HH24:MI') AS morning_start,
             TO_CHAR(morning_end, 'HH24:MI') AS morning_end,
             TO_CHAR(afternoon_start, 'HH24:MI') AS afternoon_start,
-            TO_CHAR(afternoon_end, 'HH24:MI') AS afternoon_end
+            TO_CHAR(afternoon_end, 'HH24:MI') AS afternoon_end,
+            TO_CHAR(evening_start, 'HH24:MI') AS evening_start,
+            TO_CHAR(evening_end, 'HH24:MI') AS evening_end
      FROM practitioner_weekly_schedules
      WHERE practitioner_id = $1 ORDER BY day_of_week`,
     [user.id]
@@ -48,16 +52,18 @@ export async function updateMyWeeklySchedule(rows: WeeklyScheduleRow[]): Promise
   for (const r of rows) {
     await db.query(
       `INSERT INTO practitioner_weekly_schedules
-         (practitioner_id, day_of_week, is_working, morning_start, morning_end, afternoon_start, afternoon_end, updated_at)
-       VALUES ($1, $2, $3, $4::time, $5::time, $6::time, $7::time, NOW())
+         (practitioner_id, day_of_week, is_working, morning_start, morning_end, afternoon_start, afternoon_end, evening_start, evening_end, updated_at)
+       VALUES ($1, $2, $3, $4::time, $5::time, $6::time, $7::time, $8::time, $9::time, NOW())
        ON CONFLICT (practitioner_id, day_of_week) DO UPDATE SET
          is_working = EXCLUDED.is_working,
          morning_start = EXCLUDED.morning_start,
          morning_end = EXCLUDED.morning_end,
          afternoon_start = EXCLUDED.afternoon_start,
          afternoon_end = EXCLUDED.afternoon_end,
+         evening_start = EXCLUDED.evening_start,
+         evening_end = EXCLUDED.evening_end,
          updated_at = NOW()`,
-      [targetId, r.day_of_week, r.is_working, r.morning_start, r.morning_end, r.afternoon_start, r.afternoon_end]
+      [targetId, r.day_of_week, r.is_working, r.morning_start, r.morning_end, r.afternoon_start, r.afternoon_end, r.evening_start || null, r.evening_end || null]
     );
   }
   revalidatePath("/schedules");
@@ -125,10 +131,18 @@ export async function getPractitionerSchedule(practitionerId: string): Promise<W
             TO_CHAR(morning_start, 'HH24:MI') AS morning_start,
             TO_CHAR(morning_end, 'HH24:MI') AS morning_end,
             TO_CHAR(afternoon_start, 'HH24:MI') AS afternoon_start,
-            TO_CHAR(afternoon_end, 'HH24:MI') AS afternoon_end
+            TO_CHAR(afternoon_end, 'HH24:MI') AS afternoon_end,
+            TO_CHAR(evening_start, 'HH24:MI') AS evening_start,
+            TO_CHAR(evening_end, 'HH24:MI') AS evening_end
      FROM practitioner_weekly_schedules
      WHERE practitioner_id = $1 ORDER BY day_of_week`,
     [practitionerId]
   );
   return rows as WeeklyScheduleRow[];
+}
+
+// Mat do lich dat 7 ngay toi (hien tren lich tuan)
+export async function getMyWeeklyDensity(): Promise<Record<number, number>> {
+  const user = await requireUser();
+  return getWeeklyBookingDensity(user.id);
 }

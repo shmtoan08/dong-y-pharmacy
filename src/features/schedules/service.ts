@@ -14,7 +14,7 @@ const DEFAULT_SCHEDULE = {
   afternoon_end: "17:00",
 };
 
-function generateSlots(morningStart: string | null, morningEnd: string | null, afternoonStart: string | null, afternoonEnd: string | null): string[] {
+function generateSlots(morningStart: string | null, morningEnd: string | null, afternoonStart: string | null, afternoonEnd: string | null, eveningStart?: string | null, eveningEnd?: string | null): string[] {
   const slots: string[] = [];
   const addRange = (start: string | null, end: string | null) => {
     if (!start || !end) return;
@@ -29,6 +29,7 @@ function generateSlots(morningStart: string | null, morningEnd: string | null, a
   };
   addRange(morningStart, morningEnd);
   addRange(afternoonStart, afternoonEnd);
+  addRange(eveningStart || null, eveningEnd || null);
   return slots;
 }
 
@@ -47,13 +48,14 @@ export async function getWorkingHours(practitionerId: string, date: string): Pro
   const dow = new Date(date + "T00:00:00").getDay();
   const { rows: sched } = await db.query(
     `SELECT is_working, TO_CHAR(morning_start, 'HH24:MI') AS ms, TO_CHAR(morning_end, 'HH24:MI') AS me,
-            TO_CHAR(afternoon_start, 'HH24:MI') AS as_, TO_CHAR(afternoon_end, 'HH24:MI') AS ae
+            TO_CHAR(afternoon_start, 'HH24:MI') AS as_, TO_CHAR(afternoon_end, 'HH24:MI') AS ae,
+            TO_CHAR(evening_start, 'HH24:MI') AS es, TO_CHAR(evening_end, 'HH24:MI') AS ee
      FROM practitioner_weekly_schedules
      WHERE practitioner_id = $1 AND day_of_week = $2`,
     [practitionerId, dow]
   );
 
-  let s = DEFAULT_SCHEDULE;
+  let s: any = DEFAULT_SCHEDULE;
   let isWorking = dow !== 0; // CN nghi mac dinh
   if (sched.length > 0) {
     isWorking = sched[0].is_working;
@@ -63,6 +65,8 @@ export async function getWorkingHours(practitionerId: string, date: string): Pro
       morning_end: sched[0].me,
       afternoon_start: sched[0].as_,
       afternoon_end: sched[0].ae,
+      evening_start: sched[0].es,
+      evening_end: sched[0].ee,
     };
   }
 
@@ -70,7 +74,7 @@ export async function getWorkingHours(practitionerId: string, date: string): Pro
     return { working: false, reason: "Bác sĩ không làm việc ngày này", slots: [] };
   }
 
-  const slots = generateSlots(s.morning_start, s.morning_end, s.afternoon_start, s.afternoon_end);
+  const slots = generateSlots(s.morning_start, s.morning_end, s.afternoon_start, s.afternoon_end, s.evening_start, s.evening_end);
   return { working: true, slots };
 }
 
@@ -84,4 +88,22 @@ export async function countBookingsOnDate(practitionerId: string, date: string):
     [practitionerId, date]
   );
   return parseInt(rows[0]?.cnt || "0", 10);
+}
+
+
+// Dem so lich dat cua bac si trong 7 ngay toi (theo thu)
+export async function getWeeklyBookingDensity(practitionerId: string): Promise<Record<number, number>> {
+  const { rows } = await db.query(
+    `SELECT EXTRACT(DOW FROM scheduled_at AT TIME ZONE 'Asia/Ho_Chi_Minh')::int AS dow, COUNT(*) AS cnt
+     FROM appointments
+     WHERE practitioner_id = $1
+       AND scheduled_at >= NOW()
+       AND scheduled_at < NOW() + INTERVAL '7 days'
+       AND status IN ('scheduled', 'confirmed')
+     GROUP BY dow`,
+    [practitionerId]
+  );
+  const result: Record<number, number> = {};
+  for (const r of rows) result[r.dow] = parseInt(r.cnt, 10);
+  return result;
 }
