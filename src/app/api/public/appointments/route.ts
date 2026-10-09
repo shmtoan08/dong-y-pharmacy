@@ -2,6 +2,7 @@ export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
 import { withTransaction, db } from "@/lib/db";
+import { getWorkingHours } from "@/features/schedules/service";
 
 function checkApiKey(req: Request): boolean {
   const key = req.headers.get("authorization")?.replace("Bearer ", "");
@@ -142,6 +143,15 @@ export async function POST(req: Request) {
         doctorName = doc[0].full_name;
       }
 
+      // Kiem tra bac si co lam viec ngay nay khong
+      const wh = await getWorkingHours(practitionerId || "", date);
+      if (!wh.working) {
+        throw new Error(wh.reason || "Bác sĩ không làm việc ngày này");
+      }
+      if (!wh.slots.includes(timeSlot)) {
+        throw new Error("Khung giờ này nằm ngoài giờ làm việc của bác sĩ");
+      }
+
       const scheduledAt = `${date}T${timeSlot}:00+07:00`;
       const dateStr = date.replace(/-/g, "");
       const rand = Math.random().toString(36).substring(2, 6).toUpperCase();
@@ -180,7 +190,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ ...result, message: result.duplicate ? "Lịch hẹn đã được tạo trước đó" : "Đặt lịch thành công" });
   } catch (e: any) {
     console.error("Public appointment error:", e.message);
-    const friendly = ["Bác sĩ không hợp lệ", "Khung giờ này đã có người đặt"];
+    const friendly = ["Bác sĩ không hợp lệ", "Khung giờ này đã có người đặt", "Bác sĩ nghỉ", "ngoài giờ làm việc"];
     const msg = friendly.some((f) => e.message?.includes(f)) ? e.message : "Lỗi hệ thống, vui lòng thử lại";
     return NextResponse.json({ error: msg }, { status: 500 });
   }

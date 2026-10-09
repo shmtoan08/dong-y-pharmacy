@@ -20,6 +20,7 @@ export const PERMISSIONS = [
   { key: "appointments.view", label: "Xem lịch hẹn", group: "Lịch hẹn" },
   { key: "appointments.create", label: "Đặt lịch hẹn", group: "Lịch hẹn" },
   { key: "appointments.manage", label: "Quản lý lịch hẹn", group: "Lịch hẹn" },
+  { key: "schedules.view", label: "Xem lịch làm việc", group: "Lịch hẹn" },
   { key: "finance.invoices.view", label: "Xem hóa đơn", group: "Tài chính" },
   { key: "finance.invoices.create", label: "Lập hóa đơn", group: "Tài chính" },
   { key: "finance.invoices.collect", label: "Thu tiền hóa đơn", group: "Tài chính" },
@@ -40,7 +41,7 @@ export const DEFAULT_PERMISSIONS: Record<string, PermissionKey[]> = {
     "prescriptions.view", "prescriptions.create", "prescriptions.confirm",
     "formulas.view", "formulas.create", "formulas.edit",
     "herbs.view",
-    "appointments.view", "appointments.create", "appointments.manage",
+    "appointments.view", "appointments.create", "appointments.manage", "schedules.view",
   ],
   dispenser: [
     "prescriptions.view", "prescriptions.confirm", "prescriptions.dispense",

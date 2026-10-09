@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { getWorkingHours } from "@/features/schedules/service";
 
 export const dynamic = "force-dynamic";
 
@@ -26,12 +27,23 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: "Ngày không hợp lệ" }, { status: 400 });
   }
 
+  // Bac si bat buoc phai chon cu the (khong con "bat ky")
+  if (!doctorId) {
+    return NextResponse.json({ error: "Vui lòng chọn bác sĩ", slots: [], working: false }, { status: 400 });
+  }
+
+  // Kiem tra lich lam viec
+  const wh = await getWorkingHours(doctorId, date);
+  if (!wh.working) {
+    return NextResponse.json({ slots: [], working: false, reason: wh.reason });
+  }
+
   const { rows } = await db.query(
     `SELECT TO_CHAR(scheduled_at AT TIME ZONE 'Asia/Ho_Chi_Minh', 'HH24:MI') AS slot, COUNT(*) AS cnt
      FROM appointments
      WHERE DATE(scheduled_at AT TIME ZONE 'Asia/Ho_Chi_Minh') = $1
        AND status IN ('scheduled', 'confirmed', 'checked_in')
-       AND ($2::uuid IS NULL OR practitioner_id = $2::uuid OR practitioner_id IS NULL)
+       AND practitioner_id = $2::uuid
      GROUP BY slot`,
     [date, doctorId]
   );
@@ -39,14 +51,11 @@ export async function GET(req: Request) {
   const booked: Record<string, number> = {};
   for (const r of rows) booked[r.slot] = parseInt(r.cnt, 10);
 
-  const slots = [
-    "08:00", "08:30", "09:00", "09:30", "10:00", "10:30",
-    "14:00", "14:30", "15:00", "15:30", "16:00",
-  ].map((s) => ({
+  const slots = wh.slots.map((s) => ({
     time: s,
     available: (booked[s] || 0) < 1,
     bookedCount: booked[s] || 0,
   }));
 
-  return NextResponse.json({ slots });
+  return NextResponse.json({ slots, working: true });
 }

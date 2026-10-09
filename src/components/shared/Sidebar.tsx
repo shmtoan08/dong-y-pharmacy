@@ -23,7 +23,8 @@ import {
   Activity,
   ShieldCheck,
   AlertTriangle,
-  Settings, ListOrdered} from "lucide-react";
+  Settings, ListOrdered,
+  CalendarDays} from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { InfoModal } from "./InfoModal";
@@ -45,6 +46,7 @@ const MENU: MenuItem[] = [
   { href: "/appointments", label: "Tiếp đón & Lịch hẹn", icon: CalendarClock, permission: "appointments.view", section: "Khám chữa bệnh" },
   { href: "/appointments/online", label: "Đặt lịch online", icon: Globe, permission: "appointments.view", section: "Khám chữa bệnh", badge: "pendingBookings" },
   { href: "/appointments/queue", label: "Hàng đợi hôm nay", icon: ListOrdered, permission: "appointments.view", section: "Khám chữa bệnh" },
+  { href: "/schedules", label: "Lịch làm việc", icon: CalendarDays, permission: "schedules.view", section: "Khám chữa bệnh" },
   { href: "/visits", label: "Khám bệnh & Bệnh án", icon: Stethoscope, permission: "visits.view", section: "Khám chữa bệnh" },
   { href: "/patients", label: "Hồ sơ bệnh nhân", icon: Users, permission: "patients.view", section: "Khám chữa bệnh" },
   { href: "/prescriptions", label: "Kê đơn & Bốc thuốc", icon: FileText, permission: "prescriptions.view", section: "Khám chữa bệnh" },
