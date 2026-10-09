@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 
+export const dynamic = "force-dynamic";
+
 function checkApiKey(req: Request): boolean {
   const key = req.headers.get("authorization")?.replace("Bearer ", "");
   const expected = process.env.BOOKING_API_KEY;
@@ -15,7 +17,9 @@ export async function GET(req: Request) {
   }
 
   const { rows } = await db.query(
-    `SELECT id, full_name AS name, COALESCE(specialty, 'Đa khoa') AS specialty
+    `SELECT id, full_name AS name,
+            COALESCE(specialty, 'Đa khoa') AS specialty,
+            avatar_url, degree, experience_years
      FROM users
      WHERE role = 'practitioner' AND is_active = true
      ORDER BY full_name`
@@ -26,12 +30,10 @@ export async function GET(req: Request) {
       id: r.id,
       name: r.name,
       specialty: r.specialty,
+      avatarUrl: r.avatar_url || null,
+      degree: r.degree || null,
+      experienceYears: r.experience_years || null,
       acceptingBookings: true,
     })),
   });
-}
-
-// GET /api/public/clinic-info — thông tin phòng khám public (hotline, giờ, giấy phép)
-export async function POST(req: Request) {
-  return NextResponse.json({ error: "Use GET" }, { status: 405 });
 }
