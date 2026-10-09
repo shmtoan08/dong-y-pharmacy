@@ -73,8 +73,9 @@ export async function POST(req: Request) {
   if (day === 0) {
     return NextResponse.json({ error: "Phòng khám nghỉ Chủ nhật" }, { status: 400 });
   }
-  if (hour < 8 || hour >= 17 || (hour >= 11.5 && hour < 14)) {
-    return NextResponse.json({ error: "Ngoài giờ nhận bệnh (8:00-11:30, 14:00-17:00)" }, { status: 400 });
+  // Nghỉ trưa (11:30-14:00) vẫn cho bốc số, chỉ chặn ngoài giờ hành chính
+  if (hour < 8 || hour >= 17) {
+    return NextResponse.json({ error: "Ngoài giờ nhận bệnh (8:00-17:00)" }, { status: 400 });
   }
 
   try {

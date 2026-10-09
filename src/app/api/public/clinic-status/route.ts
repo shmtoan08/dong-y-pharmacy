@@ -73,7 +73,8 @@ export async function GET(req: Request) {
 
   // Quota: tối đa 40 số/ngày (cấu hình đơn giản)
   const QUOTA = 40;
-  const isAcceptingBookings = isOpen && !isLunchBreak && totalIssued < QUOTA;
+  // Nghỉ trưa vẫn cho bốc số (chỉ hiển thị trạng thái), chỉ khóa khi ngoài giờ hành chính hoặc hết quota
+  const isAcceptingBookings = !isSunday && hour >= 8 && hour < 17 && totalIssued < QUOTA;
 
   // Ước tính chờ: mỗi lượt ~15 phút
   const estimatedWaitMinutes = waitingCount * 15;
