@@ -29,26 +29,41 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
 
-  const { date, timeSlot, doctorId, patientName, phone, birthYear, gender, symptom, idempotencyKey } = body;
+  const { date, timeSlot, doctorId, patientName, phone, birthYear, gender, symptom, idempotencyKey, patientCode } = body;
 
-  if (!date || !timeSlot || !patientName?.trim() || !phone?.trim()) {
-    return NextResponse.json({ error: "Thiếu thông tin bắt buộc" }, { status: 400 });
+  // Benh nhan co san (gui patientCode): chi check ton tai, khong validate them
+  const isExistingPatient = !!patientCode?.trim();
+
+  if (!date || !timeSlot) {
+    return NextResponse.json({ error: "Thiếu ngày hoặc giờ khám" }, { status: 400 });
   }
   if (!VALID_SLOTS.includes(timeSlot)) {
     return NextResponse.json({ error: "Khung giờ không hợp lệ" }, { status: 400 });
   }
-  const phoneClean = phone.replace(/\D/g, "");
-  if (!/^0\d{9}$/.test(phoneClean)) {
-    return NextResponse.json({ error: "SĐT không hợp lệ" }, { status: 400 });
-  }
-  // Năm sinh: 1900 - năm hiện tại
-  const by = parseInt(birthYear, 10);
-  const curYear = new Date().getFullYear();
-  if (!by || by < 1900 || by > curYear) {
-    return NextResponse.json({ error: "Năm sinh không hợp lệ" }, { status: 400 });
-  }
-  if (!["male", "female"].includes(gender)) {
-    return NextResponse.json({ error: "Giới tính không hợp lệ" }, { status: 400 });
+
+  let phoneClean = "";
+  let by: number | null = null;
+  let finalGender: string | null = null;
+  let finalName = "";
+
+  if (!isExistingPatient) {
+    if (!patientName?.trim() || !phone?.trim()) {
+      return NextResponse.json({ error: "Thiếu thông tin bắt buộc" }, { status: 400 });
+    }
+    phoneClean = phone.replace(/\D/g, "");
+    if (!/^0\d{9}$/.test(phoneClean)) {
+      return NextResponse.json({ error: "SĐT không hợp lệ" }, { status: 400 });
+    }
+    by = parseInt(birthYear, 10);
+    const curYear = new Date().getFullYear();
+    if (!by || by < 1900 || by > curYear) {
+      return NextResponse.json({ error: "Năm sinh không hợp lệ" }, { status: 400 });
+    }
+    if (!["male", "female"].includes(gender)) {
+      return NextResponse.json({ error: "Giới tính không hợp lệ" }, { status: 400 });
+    }
+    finalGender = gender;
+    finalName = patientName.trim();
   }
 
   const apptDate = new Date(date + "T00:00:00+07:00");
@@ -78,29 +93,40 @@ export async function POST(req: Request) {
         }
       }
 
-      // Tìm bệnh nhân theo SĐT
+      // Benh nhan co san: tim theo ma BN
       let patientId: string;
-      const { rows: found } = await tx.query(
-        `SELECT id FROM patients WHERE REPLACE(REPLACE(phone, ' ', ''), '.', '') = $1 LIMIT 1`,
-        [phoneClean]
-      );
-      if (found.length > 0) {
-        patientId = found[0].id;
-        // Cập nhật năm sinh/giới tính nếu chưa có
-        await tx.query(
-          `UPDATE patients SET date_of_birth = COALESCE(date_of_birth, $2), sex = COALESCE(sex, $3) WHERE id = $1`,
-          [patientId, `${by}-01-01`, gender]
+      if (isExistingPatient) {
+        const { rows: byCode } = await tx.query(
+          `SELECT id FROM patients WHERE patient_code = $1 LIMIT 1`,
+          [patientCode.trim().toUpperCase()]
         );
+        if (byCode.length === 0) {
+          throw new Error("Mã bệnh nhân không tồn tại. Vui lòng kiểm tra lại.");
+        }
+        patientId = byCode[0].id;
       } else {
-        const todayStr = new Date().toISOString().slice(0, 10);
-        const { rows: seqRows } = await tx.query(`SELECT next_daily_n($1, 'patient') AS n`, [todayStr]);
-        const ptCode = `BN-${todayStr.replace(/-/g, "")}-${String(seqRows[0].n).padStart(3, "0")}`;
-        const { rows: newPt } = await tx.query(
-          `INSERT INTO patients (patient_code, full_name, phone, date_of_birth, sex)
-           VALUES ($1, $2, $3, $4, $5) RETURNING id`,
-          [ptCode, patientName.trim(), phoneClean, `${by}-01-01`, gender]
+        // Khach vang lai: tim theo SDT hoac tao moi
+        const { rows: found } = await tx.query(
+          `SELECT id FROM patients WHERE REPLACE(REPLACE(phone, ' ', ''), '.', '') = $1 LIMIT 1`,
+          [phoneClean]
         );
-        patientId = newPt[0].id;
+        if (found.length > 0) {
+          patientId = found[0].id;
+          await tx.query(
+            `UPDATE patients SET date_of_birth = COALESCE(date_of_birth, $2), sex = COALESCE(sex, $3) WHERE id = $1`,
+            [patientId, `${by}-01-01`, finalGender]
+          );
+        } else {
+          const todayStr = new Date().toISOString().slice(0, 10);
+          const { rows: seqRows } = await tx.query(`SELECT next_daily_n($1, 'patient') AS n`, [todayStr]);
+          const ptCode = `BN-${todayStr.replace(/-/g, "")}-${String(seqRows[0].n).padStart(3, "0")}`;
+          const { rows: newPt } = await tx.query(
+            `INSERT INTO patients (patient_code, full_name, phone, date_of_birth, sex)
+             VALUES ($1, $2, $3, $4, $5) RETURNING id`,
+            [ptCode, finalName, phoneClean, `${by}-01-01`, finalGender]
+          );
+          patientId = newPt[0].id;
+        }
       }
 
       // Kiểm tra bác sĩ
