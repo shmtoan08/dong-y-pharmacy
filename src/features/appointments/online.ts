@@ -193,10 +193,10 @@ export async function checkInOnlineBooking(id: string): Promise<{ visitId?: stri
         return;
       }
 
-      const { rows: v } = await tx.query(
-        `INSERT INTO visits (patient_id, practitioner_id, appointment_id, visit_date, status, created_by)
-         VALUES ($1, $2, $3, CURRENT_DATE, 'in_progress', $4) RETURNING id`,
-        [rows[0].patient_id, rows[0].practitioner_id, id, user.id]
+      const { rows: v } = await tx.query<{ id: string }>(
+        `INSERT INTO visits (patient_id, practitioner_id, visited_at, appointment_id)
+         VALUES ($1, $2, NOW(), $3) RETURNING id`,
+        [rows[0].patient_id, rows[0].practitioner_id ?? user.id, id]
       );
       visitId = v[0].id;
     });
