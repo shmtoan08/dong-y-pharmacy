@@ -75,18 +75,20 @@ export function OnlineBookingBoard({
   }
 
   function doSearch() {
-    const params = new URLSearchParams();
+    const params = new URLSearchParams(window.location.search);
     params.set("tab", activeTab);
     if (search.trim()) params.set("q", search.trim());
+    else params.delete("q");
     router.push(`/appointments/online?${params.toString()}`);
   }
 
-  function fmtDateVN(d: string | null): string {
+  function fmtDateVN(d: string | Date | null): string {
     if (!d) return "";
-    // queue_date co the la "2026-10-09" hoac ISO string
-    const dateOnly = d.slice(0, 10);
-    const [y, m, day] = dateOnly.split("-");
-    return `${day}/${m}/${y}`;
+    // queue_date co the la Date object hoac string "2026-10-09"
+    const dt = d instanceof Date ? d : new Date(d.slice(0, 10) + "T00:00:00");
+    const day = String(dt.getDate()).padStart(2, "0");
+    const m = String(dt.getMonth() + 1).padStart(2, "0");
+    return `${day}/${m}/${dt.getFullYear()}`;
   }
 
   function fmtDateTime(iso: string) {
