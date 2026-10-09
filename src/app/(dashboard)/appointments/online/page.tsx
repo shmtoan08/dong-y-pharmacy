@@ -34,7 +34,7 @@ export default async function OnlineBookingsPage({
           Đang xem ngày {date} <a href="/appointments/online?tab=all" className="text-emerald-700 underline">✕ Xóa lọc ngày</a>
         </p>
       )}
-      <OnlineBookingBoard initialBookings={bookings} activeTab={activeTab} initialSearch={q || ""} />
+      <OnlineBookingBoard initialBookings={bookings} activeTab={activeTab} initialSearch={q || ""} selectedDate={date || todayStr} />
     </div>
   );
 }

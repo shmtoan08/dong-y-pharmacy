@@ -31,11 +31,12 @@ const STATUS_LABEL: Record<string, { text: string; color: string }> = {
 };
 
 export function OnlineBookingBoard({
-  initialBookings, activeTab, initialSearch,
+  initialBookings, activeTab, initialSearch, selectedDate,
 }: {
   initialBookings: OnlineBooking[];
   activeTab: string;
   initialSearch: string;
+  selectedDate: string;
 }) {
   const router = useRouter();
   const [info, setInfo] = useState<{ title: string; desc: string } | null>(null);
@@ -46,7 +47,13 @@ export function OnlineBookingBoard({
   const [contactId, setContactId] = useState<string | null>(null);
   const [contactNote, setContactNote] = useState("");
   const [search, setSearch] = useState(initialSearch);
-  const [viewMode, setViewMode] = useState<"list" | "timeline">("list");
+  const [bookingTab, setBookingTab] = useState<"queue" | "advance">("queue");
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const isFutureDate = selectedDate > todayStr;
+  const queueList = initialBookings.filter((b) => b.booking_type === "queue");
+  const advanceList = initialBookings.filter((b) => b.booking_type !== "queue");
+  const activeBookingTab = isFutureDate ? "advance" : bookingTab;
+  const visibleList = activeBookingTab === "advance" ? advanceList : queueList;
 
   async function run(id: string, fn: () => Promise<void>, okMsg: string) {
     setLoading(id);
@@ -131,30 +138,30 @@ export function OnlineBookingBoard({
         ))}
       </div>
 
-      {/* Toggle List / Timeline */}
-      <div className="flex w-fit gap-1 rounded-lg bg-stone-100 p-1">
-        <button
-          onClick={() => setViewMode("list")}
-          className={`rounded-md px-4 py-1.5 text-sm font-medium transition ${
-            viewMode === "list" ? "bg-white text-stone-900 shadow" : "text-stone-500"
-          }`}>
-          📋 Danh sách
-        </button>
-        <button
-          onClick={() => setViewMode("timeline")}
-          className={`rounded-md px-4 py-1.5 text-sm font-medium transition ${
-            viewMode === "timeline" ? "bg-white text-stone-900 shadow" : "text-stone-500"
-          }`}>
-          🕐 Timeline
-        </button>
-      </div>
+      {!isFutureDate && (
+        <div className="flex w-fit gap-1 rounded-lg bg-stone-100 p-1">
+          <button
+            onClick={() => setBookingTab("queue")}
+            className={`rounded-md px-4 py-1.5 text-sm font-medium transition ${
+              bookingTab === "queue" ? "bg-white text-stone-900 shadow" : "text-stone-500"
+            }`}>
+            🎫 Lấy số ({queueList.length})
+          </button>
+          <button
+            onClick={() => setBookingTab("advance")}
+            className={`rounded-md px-4 py-1.5 text-sm font-medium transition ${
+              bookingTab === "advance" ? "bg-white text-stone-900 shadow" : "text-stone-500"
+            }`}>
+            📅 Đặt trước ({advanceList.length})
+          </button>
+        </div>
+      )}
 
-      {/* Danh sách / Timeline */}
-      {viewMode === "timeline" ? (
-        <BookingTimeline bookings={initialBookings} />
+      {activeBookingTab === "advance" ? (
+        <BookingTimeline bookings={advanceList} />
       ) : (
       <div className="space-y-2">
-        {initialBookings.map((b) => {
+        {visibleList.map((b) => {
           const st = STATUS_LABEL[b.status] || STATUS_LABEL.scheduled;
           return (
             <Card key={b.id}>
@@ -283,7 +290,7 @@ export function OnlineBookingBoard({
             </Card>
           );
         })}
-        {initialBookings.length === 0 && (
+        {visibleList.length === 0 && (
           <p className="py-8 text-center text-stone-400">Không có lịch nào</p>
         )}
       </div>

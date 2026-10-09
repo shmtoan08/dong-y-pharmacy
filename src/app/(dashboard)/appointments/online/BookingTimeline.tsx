@@ -49,10 +49,6 @@ export function BookingTimeline({ bookings }: { bookings: OnlineBooking[] }) {
   const extraSlots = [...bySlot.keys()].filter((s) => !TIME_SLOTS.includes(s)).sort();
   const allSlots = [...TIME_SLOTS, ...extraSlots];
 
-  if (advance.length === 0) {
-    return <p className="py-8 text-center text-sm text-stone-400">Không có lịch đặt trước</p>;
-  }
-
   return (
     <div className="space-y-1">
       {allSlots.map((slot) => {
