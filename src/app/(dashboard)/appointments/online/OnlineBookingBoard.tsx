@@ -8,7 +8,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import {
-  confirmBooking, rejectBooking, cancelBooking, markContacted,
+  confirmBooking, rejectBooking, cancelBooking, markContacted, checkInOnlineBooking,
   type OnlineBooking,
 } from "@/features/appointments/online";
 import { InfoModal } from "@/components/shared/InfoModal";
@@ -30,10 +30,11 @@ const STATUS_LABEL: Record<string, { text: string; color: string }> = {
 };
 
 export function OnlineBookingBoard({
-  initialBookings, activeTab,
+  initialBookings, activeTab, initialSearch,
 }: {
   initialBookings: OnlineBooking[];
   activeTab: string;
+  initialSearch: string;
 }) {
   const router = useRouter();
   const [info, setInfo] = useState<{ title: string; desc: string } | null>(null);
@@ -43,6 +44,7 @@ export function OnlineBookingBoard({
   const [rejectReason, setRejectReason] = useState("");
   const [contactId, setContactId] = useState<string | null>(null);
   const [contactNote, setContactNote] = useState("");
+  const [search, setSearch] = useState(initialSearch);
 
   async function run(id: string, fn: () => Promise<void>, okMsg: string) {
     setLoading(id);
@@ -57,6 +59,28 @@ export function OnlineBookingBoard({
     }
   }
 
+  async function handleCheckIn(id: string) {
+    setLoading(id);
+    try {
+      const r = await checkInOnlineBooking(id);
+      if (r.error) {
+        showInfo("Lỗi", r.error);
+      } else {
+        showInfo("Thành công", "Đã tiếp đón, chuyển sang phòng khám");
+        router.refresh();
+      }
+    } finally {
+      setLoading(null);
+    }
+  }
+
+  function doSearch() {
+    const params = new URLSearchParams();
+    params.set("tab", activeTab);
+    if (search.trim()) params.set("q", search.trim());
+    router.push(`/appointments/online?${params.toString()}`);
+  }
+
   function fmtDateTime(iso: string) {
     const d = new Date(iso);
     return d.toLocaleString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh" });
@@ -67,10 +91,24 @@ export function OnlineBookingBoard({
       <InfoModal open={info !== null} onOpenChange={(o) => !o && setInfo(null)}
         title={info?.title ?? ""} description={info?.desc ?? ""} />
 
-      {/* Tabs */}
-      <div className="flex gap-2 border-b">
+      {/* Ô tìm kiếm */}
+      <div className="flex gap-2">
+        <Input value={search} onChange={(e) => setSearch(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && doSearch()}
+          placeholder="Tìm theo SĐT, tên bệnh nhân, mã lịch..."
+          className="flex-1" />
+        <Button onClick={doSearch}>🔍 Tìm</Button>
+        {initialSearch && (
+          <Button variant="outline" onClick={() => { setSearch(""); router.push(`/appointments/online?tab=${activeTab}`); }}>
+            ✕
+          </Button>
+        )}
+      </div>
+
+      {/* Tabs - cuộn ngang trên mobile */}
+      <div className="flex gap-2 overflow-x-auto border-b whitespace-nowrap">
         {TABS.map((t) => (
-          <Link key={t.key} href={`/appointments/online?tab=${t.key}`}
+          <Link key={t.key} href={`/appointments/online?tab=${t.key}${initialSearch ? `&q=${encodeURIComponent(initialSearch)}` : ""}`}
             className={`px-4 py-2 text-sm font-medium ${
               activeTab === t.key
                 ? "border-b-2 border-emerald-600 text-emerald-700"
@@ -104,6 +142,11 @@ export function OnlineBookingBoard({
                         {b.phone}
                       </a>
                       <span className="ml-2 text-xs text-stone-400">{b.patient_code}</span>
+                      {(b.birth_year || b.gender) && (
+                        <span className="ml-2 text-xs text-stone-400">
+                          {b.birth_year ? `NS: ${b.birth_year}` : ""}{b.birth_year && b.gender ? " • " : ""}{b.gender === "male" ? "Nam" : b.gender === "female" ? "Nữ" : ""}
+                        </span>
+                      )}
                     </p>
                     <p className="text-sm text-stone-500">
                       {b.booking_type === "queue"
@@ -134,20 +177,32 @@ export function OnlineBookingBoard({
                         </Button>
                       </>
                     )}
+                    {(b.status === "confirmed" || (b.status === "scheduled" && b.booking_type === "queue")) && (
+                      <Button size="sm" disabled={loading === b.id}
+                        className="bg-blue-600 hover:bg-blue-700"
+                        onClick={() => handleCheckIn(b.id)}>
+                        🩺 Tiếp đón
+                      </Button>
+                    )}
                     {(b.status === "scheduled" || b.status === "confirmed") && (
-                      <>
-                        <Button size="sm" variant="outline" disabled={loading === b.id}
-                          onClick={() => { setContactId(b.id); setContactNote(""); }}>
-                          📞 Liên hệ
-                        </Button>
-                        <Button size="sm" variant="outline" disabled={loading === b.id}
-                          onClick={() => {
-                            const r = prompt("Lý do hủy:");
-                            if (r !== null) run(b.id, () => cancelBooking(b.id, r), "Đã hủy lịch");
-                          }}>
-                          Hủy
-                        </Button>
-                      </>
+                      <details className="relative">
+                        <summary className="cursor-pointer list-none rounded-md border border-stone-300 px-3 py-1.5 text-sm">
+                          ⋯
+                        </summary>
+                        <div className="absolute right-0 z-10 mt-1 w-40 rounded-md border bg-white shadow-lg">
+                          <button className="block w-full px-3 py-2 text-left text-sm hover:bg-stone-100"
+                            onClick={() => { setContactId(b.id); setContactNote(""); }}>
+                            📞 Đánh dấu liên hệ
+                          </button>
+                          <button className="block w-full px-3 py-2 text-left text-sm text-red-600 hover:bg-stone-100"
+                            onClick={() => {
+                              const r = prompt("Lý do hủy:");
+                              if (r !== null) run(b.id, () => cancelBooking(b.id, r), "Đã hủy lịch");
+                            }}>
+                            Hủy lịch
+                          </button>
+                        </div>
+                      </details>
                     )}
                   </div>
                 </div>

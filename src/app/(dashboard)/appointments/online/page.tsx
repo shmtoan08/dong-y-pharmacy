@@ -6,13 +6,13 @@ import { OnlineBookingBoard } from "./OnlineBookingBoard";
 export default async function OnlineBookingsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ tab?: string }>;
+  searchParams: Promise<{ tab?: string; q?: string }>;
 }) {
-  const { tab } = await searchParams;
+  const { tab, q } = await searchParams;
   const activeTab = (tab === "confirmed" || tab === "today" || tab === "all" ? tab : "pending") as
     "pending" | "confirmed" | "today" | "all";
 
-  const bookings = await getOnlineBookings(activeTab);
+  const bookings = await getOnlineBookings(activeTab, undefined, q);
 
   return (
     <div className="space-y-4 p-4">
@@ -26,7 +26,7 @@ export default async function OnlineBookingsPage({
           → Mở hàng đợi hôm nay
         </a>
       </div>
-      <OnlineBookingBoard initialBookings={bookings} activeTab={activeTab} />
+      <OnlineBookingBoard initialBookings={bookings} activeTab={activeTab} initialSearch={q || ""} />
     </div>
   );
 }

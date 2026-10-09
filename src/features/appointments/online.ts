@@ -17,6 +17,8 @@ export interface OnlineBooking {
   doctor_name: string | null;
   symptom: string | null;
   reject_reason: string | null;
+  birth_year: number | null;
+  gender: string | null;
   contacted_at: string | null;
   booking_type: "advance" | "queue"; // dat truoc | boc so
 }
@@ -28,7 +30,8 @@ function canManage(userRole: string): boolean {
 // Danh sách lịch online theo tab
 export async function getOnlineBookings(
   tab: "pending" | "confirmed" | "today" | "all",
-  dateFilter?: string
+  dateFilter?: string,
+  search?: string
 ): Promise<OnlineBooking[]> {
   const user = await requireUser();
   if (!canManage(user.role)) throw new Error("Không có quyền");
@@ -57,6 +60,12 @@ export async function getOnlineBookings(
     where += ` AND DATE(a.scheduled_at AT TIME ZONE 'Asia/Ho_Chi_Minh') = $${params.length}`;
   }
 
+  if (search?.trim()) {
+    params.push(`%${search.trim()}%`);
+    const p = params.length;
+    where += ` AND (p.full_name ILIKE $${p} OR REPLACE(REPLACE(p.phone, ' ', ''), '.', '') ILIKE $${p} OR a.appointment_code ILIKE $${p})`;
+  }
+
   // Bac si chi xem lich cua minh
   if (user.role === "practitioner") {
     params.push(user.id);
@@ -67,6 +76,7 @@ export async function getOnlineBookings(
     `SELECT a.id, a.appointment_code, p.full_name AS patient_name, p.patient_code,
             p.phone, a.scheduled_at, a.queue_number, a.queue_date, a.status,
             u.full_name AS doctor_name, a.note AS symptom, a.reject_reason, a.contacted_at,
+            EXTRACT(YEAR FROM p.date_of_birth)::int AS birth_year, p.sex AS gender,
             CASE WHEN a.queue_number IS NOT NULL THEN 'queue' ELSE 'advance' END AS booking_type
      FROM appointments a
      JOIN patients p ON p.id = a.patient_id
@@ -150,6 +160,54 @@ export async function markContacted(id: string, note: string) {
     [id, user.id, note.trim() || null]
   );
   revalidatePath("/appointments/online");
+}
+
+
+// Tiep don 1-click: chuyen lich sang checked_in + tao visit
+export async function checkInOnlineBooking(id: string): Promise<{ visitId?: string; error?: string }> {
+  const user = await requireUser();
+  if (!["admin", "receptionist", "practitioner"].includes(user.role)) {
+    return { error: "Không có quyền" };
+  }
+
+  try {
+    let visitId = "";
+    await withTransaction(async (tx) => {
+      // Lock + check-in
+      const { rows } = await tx.query<{ patient_id: string; practitioner_id: string | null; status: string }>(
+        `SELECT patient_id, practitioner_id, status FROM appointments WHERE id = $1 FOR UPDATE`,
+        [id]
+      );
+      if (rows.length === 0) throw new Error("NOT_FOUND");
+      if (!["scheduled", "confirmed"].includes(rows[0].status)) throw new Error("INVALID_STATUS");
+
+      await tx.query(
+        `UPDATE appointments SET status = 'checked_in', updated_at = NOW() WHERE id = $1`,
+        [id]
+      );
+
+      // Tao visit (chong double-click)
+      const { rows: ex } = await tx.query(`SELECT id FROM visits WHERE appointment_id = $1`, [id]);
+      if (ex.length > 0) {
+        visitId = ex[0].id;
+        return;
+      }
+
+      const { rows: v } = await tx.query(
+        `INSERT INTO visits (patient_id, practitioner_id, appointment_id, visit_date, status, created_by)
+         VALUES ($1, $2, $3, CURRENT_DATE, 'in_progress', $4) RETURNING id`,
+        [rows[0].patient_id, rows[0].practitioner_id, id, user.id]
+      );
+      visitId = v[0].id;
+    });
+
+    revalidatePath("/appointments/online");
+    return { visitId };
+  } catch (e: any) {
+    if (e.message === "NOT_FOUND") return { error: "Không tìm thấy lịch hẹn" };
+    if (e.message === "INVALID_STATUS") return { error: "Lịch không ở trạng thái chờ tiếp đón" };
+    return { error: "Lỗi hệ thống" };
+  }
 }
 
 // Doi lich (doi ngay/gio)
