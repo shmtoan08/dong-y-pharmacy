@@ -3,6 +3,27 @@ import { withTransaction } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
 
+// Lấy thời gian hiện tại theo giờ Việt Nam
+function getVietnamTime(): { hour: number; minute: number; day: number; dateStr: string } {
+  const fmt = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Ho_Chi_Minh",
+    year: "numeric", month: "2-digit", day: "2-digit",
+    hour: "2-digit", minute: "2-digit", hour12: false,
+    weekday: "short",
+  });
+  const parts = Object.fromEntries(
+    fmt.formatToParts(new Date()).map((p) => [p.type, p.value])
+  );
+  const weekdays: Record<string, number> = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
+  return {
+    hour: parseInt(parts.hour, 10),
+    minute: parseInt(parts.minute, 10),
+    day: weekdays[parts.weekday] ?? 1,
+    dateStr: `${parts.year}-${parts.month}-${parts.day}`,
+  };
+}
+
+
 function checkApiKey(req: Request): boolean {
   const key = req.headers.get("authorization")?.replace("Bearer ", "");
   const expected = process.env.BOOKING_API_KEY;
@@ -44,10 +65,10 @@ export async function POST(req: Request) {
   }
 
   // Kiểm tra giờ làm việc (server-side)
-  const now = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Ho_Chi_Minh" }));
-  const hour = now.getHours() + now.getMinutes() / 60;
-  const day = now.getDay();
-  const todayStr = now.toISOString().slice(0, 10);
+  const vn = getVietnamTime();
+  const hour = vn.hour + vn.minute / 60;
+  const day = vn.day;
+  const todayStr = vn.dateStr;
 
   if (day === 0) {
     return NextResponse.json({ error: "Phòng khám nghỉ Chủ nhật" }, { status: 400 });
