@@ -12,6 +12,7 @@ import { AppointmentRowActions, StatusBadge } from "./AppointmentActions";
 import { AppointmentDetailDialog } from "./AppointmentDetailDialog";
 import { AppointmentFilterToolbar } from "./AppointmentFilterToolbar";
 import { DateNavigator } from "./DateNavigator";
+import { AppointmentsWeekRibbon } from "@/components/shared/WeekRibbonWrapper";
 import { RescheduleButton } from "./RescheduleButton";
 
 export default async function AppointmentsPage({
@@ -65,6 +66,7 @@ export default async function AppointmentsPage({
         </div>
 
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <AppointmentsWeekRibbon selectedDate={date} />
           {statCards.map((s) => (
             <Card key={s.label}>
               <CardContent className="p-4">

@@ -2,17 +2,19 @@ export const dynamic = "force-dynamic";
 
 import { getOnlineBookings } from "@/features/appointments/online";
 import { OnlineBookingBoard } from "./OnlineBookingBoard";
+import { OnlineWeekRibbon } from "@/components/shared/WeekRibbonWrapper";
 
 export default async function OnlineBookingsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ tab?: string; q?: string }>;
+  searchParams: Promise<{ tab?: string; q?: string; date?: string }>;
 }) {
-  const { tab, q } = await searchParams;
+  const { tab, q, date } = await searchParams;
   const activeTab = (tab === "confirmed" || tab === "today" || tab === "all" ? tab : "pending") as
     "pending" | "confirmed" | "today" | "all";
 
-  const bookings = await getOnlineBookings(activeTab, undefined, q);
+  const bookings = await getOnlineBookings(activeTab, date, q);
+  const todayStr = new Date().toISOString().slice(0, 10);
 
   return (
     <div className="space-y-4 p-4">
@@ -26,6 +28,12 @@ export default async function OnlineBookingsPage({
           → Mở hàng đợi hôm nay
         </a>
       </div>
+      <OnlineWeekRibbon selectedDate={date || todayStr} />
+      {date && (
+        <p className="text-sm text-stone-500">
+          Đang xem ngày {date} <a href="/appointments/online?tab=all" className="text-emerald-700 underline">✕ Xóa lọc ngày</a>
+        </p>
+      )}
       <OnlineBookingBoard initialBookings={bookings} activeTab={activeTab} initialSearch={q || ""} />
     </div>
   );
