@@ -46,22 +46,35 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
 
-  const { patientName, phone, birthYear, gender, symptom, idempotencyKey } = body;
+  const { patientName, phone, birthYear, gender, symptom, idempotencyKey, patientCode } = body;
 
-  if (!patientName?.trim() || !phone?.trim()) {
-    return NextResponse.json({ error: "Thiếu họ tên hoặc SĐT" }, { status: 400 });
-  }
-  const phoneClean = phone.replace(/\D/g, "");
-  if (!/^0\d{9}$/.test(phoneClean)) {
-    return NextResponse.json({ error: "SĐT không hợp lệ" }, { status: 400 });
-  }
-  const by = parseInt(birthYear, 10);
-  const cy = new Date().getFullYear();
-  if (!/^\d{4}$/.test(String(birthYear || "").trim()) || by < 1930 || by > cy) {
-    return NextResponse.json({ error: "Năm sinh không hợp lệ" }, { status: 400 });
-  }
-  if (!["male", "female"].includes(gender)) {
-    return NextResponse.json({ error: "Giới tính không hợp lệ" }, { status: 400 });
+  // Benh nhan co san trong DB (gui patientCode): chi check ton tai, khong validate them
+  const isExistingPatient = !!patientCode?.trim();
+
+  let phoneClean: string;
+  let by: number | null = null;
+  let finalGender: string | null = null;
+
+  if (!isExistingPatient) {
+    if (!patientName?.trim() || !phone?.trim()) {
+      return NextResponse.json({ error: "Thiếu họ tên hoặc SĐT" }, { status: 400 });
+    }
+    phoneClean = phone.replace(/\D/g, "");
+    if (!/^0\d{9}$/.test(phoneClean)) {
+      return NextResponse.json({ error: "SĐT không hợp lệ" }, { status: 400 });
+    }
+    by = parseInt(birthYear, 10);
+    const cy = new Date().getFullYear();
+    if (!/^\d{4}$/.test(String(birthYear || "").trim()) || by < 1930 || by > cy) {
+      return NextResponse.json({ error: "Năm sinh không hợp lệ" }, { status: 400 });
+    }
+    if (!["male", "female"].includes(gender)) {
+      return NextResponse.json({ error: "Giới tính không hợp lệ" }, { status: 400 });
+    }
+    finalGender = gender;
+  } else {
+    // Se lay thong tin tu DB trong transaction
+    phoneClean = "";
   }
 
   // Kiểm tra giờ làm việc (server-side)
@@ -89,18 +102,33 @@ export async function POST(req: Request) {
         if (ex.length > 0) return { queueNumber: ex[0].queue_number, duplicate: true };
       }
 
-      // Kiểm tra bệnh nhân đã có lượt active hôm nay chưa (theo tên + SĐT)
-      const { rows: active } = await tx.query(
-        `SELECT a.id FROM appointments a
-         JOIN patients p ON p.id = a.patient_id
-         WHERE a.queue_date = $1 AND a.status IN ('scheduled', 'checked_in')
-           AND a.queue_number IS NOT NULL
-           AND REPLACE(REPLACE(p.phone, ' ', ''), '.', '') = $2
-           AND p.full_name ILIKE $3
-         LIMIT 1`,
-        [todayStr, phoneClean, patientName.trim()]
-      );
-      if (active.length > 0) {
+      // Kiem tra benh nhan da co luot active hom nay chua
+      let activeRows: any[] = [];
+      if (isExistingPatient) {
+        const { rows } = await tx.query(
+          `SELECT a.id FROM appointments a
+           JOIN patients p ON p.id = a.patient_id
+           WHERE a.queue_date = $1 AND a.status IN ('scheduled', 'checked_in')
+             AND a.queue_number IS NOT NULL
+             AND p.patient_code = $2
+           LIMIT 1`,
+          [todayStr, patientCode.trim().toUpperCase()]
+        );
+        activeRows = rows;
+      } else {
+        const { rows } = await tx.query(
+          `SELECT a.id FROM appointments a
+           JOIN patients p ON p.id = a.patient_id
+           WHERE a.queue_date = $1 AND a.status IN ('scheduled', 'checked_in')
+             AND a.queue_number IS NOT NULL
+             AND REPLACE(REPLACE(p.phone, ' ', ''), '.', '') = $2
+             AND p.full_name ILIKE $3
+           LIMIT 1`,
+          [todayStr, phoneClean, patientName.trim()]
+        );
+        activeRows = rows;
+      }
+      if (activeRows.length > 0) {
         throw new Error("Bệnh nhân đã có số thứ tự hôm nay");
       }
 
@@ -125,30 +153,36 @@ export async function POST(req: Request) {
         [nextNum, todayStr]
       );
 
-      // Tìm hoặc tạo bệnh nhân
+      // Benh nhan co san (gui patientCode): chi check ton tai trong DB
       let patientId: string;
-      const { rows: found } = await tx.query(
-        `SELECT id FROM patients WHERE REPLACE(REPLACE(phone, ' ', ''), '.', '') = $1 AND full_name ILIKE $2 LIMIT 1`,
-        [phoneClean, patientName.trim()]
-      );
-      if (found.length > 0) {
-        patientId = found[0].id;
-        // Cap nhat thong tin thieu (nam sinh/gioi tinh) neu benh nhan bo sung
-        await tx.query(
-          `UPDATE patients SET date_of_birth = COALESCE(date_of_birth, $2), sex = COALESCE(sex, $3)
-           WHERE id = $1`,
-          [patientId, `${by}-01-01`, gender]
+      if (isExistingPatient) {
+        const { rows: byCode } = await tx.query(
+          `SELECT id, full_name FROM patients WHERE patient_code = $1 LIMIT 1`,
+          [patientCode.trim().toUpperCase()]
         );
+        if (byCode.length === 0) {
+          throw new Error("Mã bệnh nhân không tồn tại. Vui lòng kiểm tra lại.");
+        }
+        patientId = byCode[0].id;
       } else {
-        const dStr = new Date().toISOString().slice(0, 10);
-        const { rows: seq } = await tx.query(`SELECT next_daily_n($1, 'patient') AS n`, [dStr]);
-        const ptCode = `BN-${dStr.replace(/-/g, "")}-${String(seq[0].n).padStart(3, "0")}`;
-        const { rows: np } = await tx.query(
-          `INSERT INTO patients (patient_code, full_name, phone, date_of_birth, sex)
-           VALUES ($1, $2, $3, $4, $5) RETURNING id`,
-          [ptCode, patientName.trim(), phoneClean, `${by}-01-01`, gender]
+        // Khach vang lai: tim hoac tao moi
+        const { rows: found } = await tx.query(
+          `SELECT id FROM patients WHERE REPLACE(REPLACE(phone, ' ', ''), '.', '') = $1 AND full_name ILIKE $2 LIMIT 1`,
+          [phoneClean, patientName.trim()]
         );
-        patientId = np[0].id;
+        if (found.length > 0) {
+          patientId = found[0].id;
+        } else {
+          const dStr = new Date().toISOString().slice(0, 10);
+          const { rows: seq } = await tx.query(`SELECT next_daily_n($1, 'patient') AS n`, [dStr]);
+          const ptCode = `BN-${dStr.replace(/-/g, "")}-${String(seq[0].n).padStart(3, "0")}`;
+          const { rows: np } = await tx.query(
+            `INSERT INTO patients (patient_code, full_name, phone, date_of_birth, sex)
+             VALUES ($1, $2, $3, $4, $5) RETURNING id`,
+            [ptCode, patientName.trim(), phoneClean, `${by}-01-01`, finalGender]
+          );
+          patientId = np[0].id;
+        }
       }
 
       // Tạo lịch hẹn với số thứ tự
@@ -183,7 +217,7 @@ export async function POST(req: Request) {
     });
   } catch (e: any) {
     console.error("Queue error:", e.message);
-    const known = ["Bệnh nhân đã có số thứ tự hôm nay", "Hôm nay đã hết số"];
+    const known = ["Bệnh nhân đã có số thứ tự hôm nay", "Hôm nay đã hết số", "Mã bệnh nhân không tồn tại. Vui lòng kiểm tra lại."];
     const msg = known.includes(e.message) ? e.message : "Lỗi hệ thống, vui lòng thử lại";
     return NextResponse.json({ error: msg }, { status: 400 });
   }
