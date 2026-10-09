@@ -180,7 +180,8 @@ export async function POST(req: Request) {
     return NextResponse.json({ ...result, message: result.duplicate ? "Lịch hẹn đã được tạo trước đó" : "Đặt lịch thành công" });
   } catch (e: any) {
     console.error("Public appointment error:", e.message);
-    const msg = e.message === "Bác sĩ không hợp lệ" ? e.message : "Lỗi hệ thống, vui lòng thử lại";
+    const friendly = ["Bác sĩ không hợp lệ", "Khung giờ này đã có người đặt"];
+    const msg = friendly.some((f) => e.message?.includes(f)) ? e.message : "Lỗi hệ thống, vui lòng thử lại";
     return NextResponse.json({ error: msg }, { status: 500 });
   }
 }
