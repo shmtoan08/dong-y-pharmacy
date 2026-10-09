@@ -76,6 +76,14 @@ export async function GET(req: Request) {
   // Nghỉ trưa vẫn cho bốc số (chỉ hiển thị trạng thái), chỉ khóa khi ngoài giờ hành chính hoặc hết quota
   const isAcceptingBookings = !isSunday && hour >= 8 && hour < 17 && totalIssued < QUOTA;
 
+  // Số tiếp theo sẽ được gọi (số chờ nhỏ nhất)
+  const { rows: next } = await db.query(
+    `SELECT MIN(queue_number) AS next_num FROM appointments
+     WHERE queue_date = $1 AND status = 'scheduled' AND queue_number IS NOT NULL`,
+    [todayStr]
+  );
+  const nextNumber = next[0].next_num ? parseInt(next[0].next_num, 10) : null;
+
   // Ước tính chờ: mỗi lượt ~15 phút
   const estimatedWaitMinutes = waitingCount * 15;
 
@@ -85,6 +93,7 @@ export async function GET(req: Request) {
     isSunday,
     isAcceptingBookings,
     currentNumber,
+    nextNumber,
     waitingCount,
     totalIssued,
     quota: QUOTA,
