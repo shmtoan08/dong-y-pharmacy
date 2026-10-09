@@ -23,6 +23,8 @@ const SettingsSchema = z.object({
   // Kho
   stock_expiry_warning_days: z.coerce.number().int().min(1).max(365).optional().default(30),
   stock_min_threshold: z.coerce.number().min(0).optional().default(0),
+  // Đặt lịch
+  max_queue_per_day: z.coerce.number().int().min(1).max(500).optional().default(50),
   // Thanh toán
   bank_name: z.string().max(100).optional().default(""),
   bank_account_number: z.string().max(30).optional().default(""),
@@ -46,6 +48,7 @@ const DEFAULTS: ClinicSettings = {
   print_show_qr: "true",
   stock_expiry_warning_days: 30,
   stock_min_threshold: 0,
+  max_queue_per_day: 50,
   bank_name: "",
   bank_account_number: "",
   bank_account_holder: "",

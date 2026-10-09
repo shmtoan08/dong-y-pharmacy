@@ -10,8 +10,7 @@ function checkApiKey(req: Request): boolean {
   return key === expected;
 }
 
-// Số lịch tối đa mỗi slot (có thể cấu hình theo settings sau)
-const MAX_PER_SLOT = 5;
+// 1 slot = 1 bệnh nhân (theo bác sĩ đã chọn)
 
 // GET /api/public/slots?date=2026-10-10&doctorId=... — kiểm tra slot nào còn chỗ
 export async function GET(req: Request) {
@@ -31,7 +30,7 @@ export async function GET(req: Request) {
     `SELECT TO_CHAR(scheduled_at AT TIME ZONE 'Asia/Ho_Chi_Minh', 'HH24:MI') AS slot, COUNT(*) AS cnt
      FROM appointments
      WHERE DATE(scheduled_at AT TIME ZONE 'Asia/Ho_Chi_Minh') = $1
-       AND status IN ('scheduled', 'checked_in')
+       AND status IN ('scheduled', 'confirmed', 'checked_in')
        AND ($2::uuid IS NULL OR practitioner_id = $2::uuid OR practitioner_id IS NULL)
      GROUP BY slot`,
     [date, doctorId]
@@ -45,7 +44,7 @@ export async function GET(req: Request) {
     "14:00", "14:30", "15:00", "15:30", "16:00",
   ].map((s) => ({
     time: s,
-    available: (booked[s] || 0) < MAX_PER_SLOT,
+    available: (booked[s] || 0) < 1,
     bookedCount: booked[s] || 0,
   }));
 

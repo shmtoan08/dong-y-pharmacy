@@ -147,10 +147,23 @@ export async function POST(req: Request) {
       const rand = Math.random().toString(36).substring(2, 6).toUpperCase();
       const apptCode = `LH-${dateStr}-${rand}`;
 
+      // Kiem tra slot con trong (chong double-booking)
+      const { rows: slotCheck } = await tx.query(
+        `SELECT COUNT(*) AS cnt FROM appointments
+         WHERE DATE(scheduled_at AT TIME ZONE 'Asia/Ho_Chi_Minh') = $1
+           AND TO_CHAR(scheduled_at AT TIME ZONE 'Asia/Ho_Chi_Minh', 'HH24:MI') = $2
+           AND status IN ('confirmed', 'checked_in')
+           AND ($3::uuid IS NULL OR practitioner_id = $3::uuid OR practitioner_id IS NULL)`,
+        [date, timeSlot, practitionerId]
+      );
+      if (parseInt(slotCheck[0].cnt, 10) >= 1) {
+        throw new Error("Khung giờ này đã có người đặt, vui lòng chọn khung giờ khác");
+      }
+
       const { rows: appt } = await tx.query(
         `INSERT INTO appointments
            (patient_id, practitioner_id, scheduled_at, status, source, note, idempotency_key, appointment_code)
-         VALUES ($1, $2, $3, 'scheduled', 'online', $4, $5, $6)
+         VALUES ($1, $2, $3, 'confirmed', 'online', $4, $5, $6)
          RETURNING appointment_code`,
         [patientId, practitionerId, scheduledAt, symptom?.trim()?.slice(0, 500) || null, idempotencyKey || null, apptCode]
       );

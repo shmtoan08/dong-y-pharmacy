@@ -87,6 +87,7 @@ export function SettingsForm({ initial }: { initial: ClinicSettings }) {
           <TabsTrigger value="print">🖨️ Mẫu in</TabsTrigger>
           <TabsTrigger value="stock">📦 Kho</TabsTrigger>
           <TabsTrigger value="payment">💳 Thanh toán</TabsTrigger>
+          <TabsTrigger value="booking">📅 Đặt lịch</TabsTrigger>
         </TabsList>
 
         <TabsContent value="clinic" className="mt-4">
@@ -257,6 +258,21 @@ export function SettingsForm({ initial }: { initial: ClinicSettings }) {
               <p className="text-xs text-stone-500">
                 Thông tin này dùng để tạo mã VietQR in trên hóa đơn cho bệnh nhân quét chuyển khoản.
               </p>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="booking" className="mt-4">
+          <Card>
+            <CardHeader><CardTitle>📅 Cài đặt đặt lịch</CardTitle></CardHeader>
+            <CardContent className="space-y-3">
+              <div className="space-y-1.5 max-w-xs">
+                <Label>Giới hạn bốc số mỗi ngày</Label>
+                <Input type="number" min={1} max={500}
+                  value={form.max_queue_per_day}
+                  onChange={set("max_queue_per_day")} />
+                <p className="text-xs text-stone-500">Số bệnh nhân bốc số tối đa trong 1 ngày. Vượt quá sẽ báo "hết số".</p>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>

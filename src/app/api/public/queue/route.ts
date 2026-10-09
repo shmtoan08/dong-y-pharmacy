@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { withTransaction } from "@/lib/db";
+import { db, withTransaction } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
 
@@ -31,7 +31,17 @@ function checkApiKey(req: Request): boolean {
   return key === expected;
 }
 
-const QUOTA = 40;
+async function getQueueQuota(): Promise<number> {
+  try {
+    const { rows } = await db.query(
+      `SELECT value FROM settings WHERE key = 'max_queue_per_day' LIMIT 1`
+    );
+    const v = parseInt(rows[0]?.value || "50", 10);
+    return isNaN(v) || v < 1 ? 50 : v;
+  } catch {
+    return 50;
+  }
+}
 
 // POST /api/public/queue — bốc số khám trong ngày
 export async function POST(req: Request) {
@@ -144,7 +154,8 @@ export async function POST(req: Request) {
       );
       const nextNum = counter[0].last_number + 1;
 
-      if (nextNum > QUOTA) {
+      const quota = await getQueueQuota();
+      if (nextNum > quota) {
         throw new Error("Hôm nay đã hết số, vui lòng quay lại ngày mai");
       }
 
