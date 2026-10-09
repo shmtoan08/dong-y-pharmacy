@@ -11,6 +11,7 @@ import {
   confirmBooking, rejectBooking, cancelBooking, markContacted, checkInOnlineBooking,
   type OnlineBooking,
 } from "@/features/appointments/online";
+import { BookingTimeline } from "./BookingTimeline";
 import { InfoModal } from "@/components/shared/InfoModal";
 
 const TABS = [
@@ -45,6 +46,7 @@ export function OnlineBookingBoard({
   const [contactId, setContactId] = useState<string | null>(null);
   const [contactNote, setContactNote] = useState("");
   const [search, setSearch] = useState(initialSearch);
+  const [viewMode, setViewMode] = useState<"list" | "timeline">("list");
 
   async function run(id: string, fn: () => Promise<void>, okMsg: string) {
     setLoading(id);
@@ -129,7 +131,28 @@ export function OnlineBookingBoard({
         ))}
       </div>
 
-      {/* Danh sách */}
+      {/* Toggle List / Timeline */}
+      <div className="flex w-fit gap-1 rounded-lg bg-stone-100 p-1">
+        <button
+          onClick={() => setViewMode("list")}
+          className={`rounded-md px-4 py-1.5 text-sm font-medium transition ${
+            viewMode === "list" ? "bg-white text-stone-900 shadow" : "text-stone-500"
+          }`}>
+          📋 Danh sách
+        </button>
+        <button
+          onClick={() => setViewMode("timeline")}
+          className={`rounded-md px-4 py-1.5 text-sm font-medium transition ${
+            viewMode === "timeline" ? "bg-white text-stone-900 shadow" : "text-stone-500"
+          }`}>
+          🕐 Timeline
+        </button>
+      </div>
+
+      {/* Danh sách / Timeline */}
+      {viewMode === "timeline" ? (
+        <BookingTimeline bookings={initialBookings} />
+      ) : (
       <div className="space-y-2">
         {initialBookings.map((b) => {
           const st = STATUS_LABEL[b.status] || STATUS_LABEL.scheduled;
@@ -264,6 +287,7 @@ export function OnlineBookingBoard({
           <p className="py-8 text-center text-stone-400">Không có lịch nào</p>
         )}
       </div>
+      )}
     </div>
   );
 }
