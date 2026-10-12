@@ -9,7 +9,8 @@
     "lint": "eslint",
     "build:cf": "opennextjs-cloudflare build",
     "deploy:cf": "opennextjs-cloudflare deploy",
-    "preview:cf": "opennextjs-cloudflare preview"
+    "preview:cf": "opennextjs-cloudflare preview",
+    "postinstall": "node -e \"const fs=require(fs);const f=node_modules/pg-cloudflare/package.json;const j=JSON.parse(fs.readFileSync(f,utf8));j.exports[.].default=./dist/index.js;fs.writeFileSync(f,JSON.stringify(j,null,2))\""
   },
   "dependencies": {
     "@hookform/resolvers": "^5.9.1",
