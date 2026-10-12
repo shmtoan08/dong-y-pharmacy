@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { updateUser } from "@/features/users/actions";
 import { Button } from "@/components/ui/button";
@@ -33,6 +34,10 @@ export function EditStaffForm({ user }: { user: StaffUser }) {
     updateUser.bind(null, user.id),
     {},
   );
+  const router = useRouter();
+  useEffect(() => {
+    if (state.success) router.push("/admin/staff");
+  }, [state.success, router]);
 
   return (
     <Card>

@@ -1,7 +1,8 @@
 "use client";
 
 import { BackButton } from "@/components/shared/BackButton";
-import { useActionState } from "react";
+import { useActionState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createUser } from "@/features/users/actions";
 import { Button } from "@/components/ui/button";
@@ -23,6 +24,10 @@ import {
 
 export default function NewStaffPage() {
   const [state, formAction, pending] = useActionState(createUser, {});
+  const router = useRouter();
+  useEffect(() => {
+    if (state.success) router.push("/admin/staff");
+  }, [state.success, router]);
 
   return (
     <div className="mx-auto max-w-xl space-y-6">

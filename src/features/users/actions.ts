@@ -1,6 +1,5 @@
 "use server";
 
-import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { hashPassword } from "@/lib/password";
 import { requireRole, revokeAllSessions } from "@/lib/auth";
@@ -59,7 +58,7 @@ export async function createUser(
     newValue: { email: normalizedEmail, full_name, role },
   });
 
-  redirect("/admin/staff");
+  return { success: true };
 }
 
 export async function updateUser(
@@ -127,7 +126,7 @@ export async function updateUser(
     newValue: { full_name, role },
   });
 
-  redirect("/admin/staff");
+  return { success: true };
 }
 
 export async function toggleUserActive(id: string): Promise<void> {
