@@ -4,13 +4,14 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "opennextjs-cloudflare build",
     "start": "next start",
     "lint": "eslint",
     "build:cf": "opennextjs-cloudflare build",
     "deploy:cf": "opennextjs-cloudflare deploy",
     "preview:cf": "opennextjs-cloudflare preview",
-    "postinstall": "node scripts/patch-pg-cloudflare.js"
+    "postinstall": "node scripts/patch-pg-cloudflare.js",
+    "build:next": "next build"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.9.1",
