@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build && opennextjs-cloudflare build --skipNextBuild",
+    "build": "if [ \"$OPENNEXT_NESTED\" = \"1\" ]; then next build; else OPENNEXT_NESTED=1 opennextjs-cloudflare build; fi",
     "start": "next start",
     "lint": "eslint",
     "build:cf": "opennextjs-cloudflare build",
