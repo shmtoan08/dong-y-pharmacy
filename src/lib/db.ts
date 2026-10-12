@@ -1,15 +1,30 @@
 import "server-only";
 import { Pool, type QueryResult, type QueryResultRow, type PoolClient } from "pg";
 
+// Lay connection string: uu tien Hyperdrive (Cloudflare) → fallback DATABASE_URL (local/VM)
+function getConnectionString(): string {
+  // 1. Hyperdrive binding (chay tren Cloudflare Workers)
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { getRequestContext } = require("@opennextjs/cloudflare");
+    const env = getRequestContext()?.env as any;
+    const cs = env?.HYPERDRIVE?.connectionString;
+    if (cs) return cs;
+  } catch {
+    // khong trong Cloudflare runtime → dung env thuong
+  }
+  // 2. Local dev / VM
+  const cs = process.env.DATABASE_URL;
+  if (!cs) throw new Error("DATABASE_URL chưa được cấu hình");
+  return cs;
+}
+
 // Lazy singleton — tránh tạo pool lúc build time
 let pool: Pool | null = null;
 
 export function getPool(): Pool {
   if (!pool) {
-    const connectionString = process.env.DATABASE_URL;
-    if (!connectionString) {
-      throw new Error("DATABASE_URL chưa được cấu hình");
-    }
+    const connectionString = getConnectionString();
     pool = new Pool({ connectionString, max: 10 });
   }
   return pool;
