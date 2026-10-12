@@ -1,14 +1,13 @@
 import "server-only";
 import { Pool, type QueryResult, type QueryResultRow, type PoolClient } from "pg";
+import { getCloudflareContext } from "@opennextjs/cloudflare";
 
 // Lay connection string: uu tien Hyperdrive (Cloudflare) → fallback DATABASE_URL (local/VM)
 function getConnectionString(): string {
   // 1. Hyperdrive binding (chay tren Cloudflare Workers)
   try {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const { getRequestContext } = require("@opennextjs/cloudflare");
-    const env = getRequestContext()?.env as any;
-    const cs = env?.HYPERDRIVE?.connectionString;
+    const env = getCloudflareContext().env as Record<string, any>;
+    const cs = env?.HYPERDRIVE?.connectionString as string | undefined;
     if (cs) return cs;
   } catch {
     // khong trong Cloudflare runtime → dung env thuong
