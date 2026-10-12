@@ -60,3 +60,5 @@ export default function LoginPage() {
     </div>
   );
 }
+
+{/* cloudflare auto-deploy test 2026-10-12 */}
