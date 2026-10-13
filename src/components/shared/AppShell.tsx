@@ -14,10 +14,14 @@ interface SessionUser {
 export function AppShell({
   user,
   permissions,
+  clinicName,
+  clinicLogoUrl,
   children,
 }: {
   user: SessionUser;
   permissions: string[];
+  clinicName: string;
+  clinicLogoUrl?: string;
   children: React.ReactNode;
 }) {
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -41,7 +45,7 @@ export function AppShell({
     <div className="flex min-h-screen bg-stone-50">
       {/* Sidebar desktop — ẩn trên mobile */}
       <div className="hidden lg:block">
-        <Sidebar permissions={permissions} />
+        <Sidebar permissions={permissions} clinicName={clinicName} clinicLogoUrl={clinicLogoUrl} />
       </div>
 
       {/* Drawer mobile — w-64 khít với Sidebar bên trong.
@@ -53,7 +57,7 @@ export function AppShell({
             onClick={() => setDrawerOpen(false)}
           />
           <div className="absolute left-0 top-0 h-full w-64 shadow-xl">
-            <Sidebar permissions={permissions} onNavigate={() => setDrawerOpen(false)} />
+            <Sidebar permissions={permissions} onNavigate={() => setDrawerOpen(false)} clinicName={clinicName} clinicLogoUrl={clinicLogoUrl} />
           </div>
         </div>
       )}

@@ -76,9 +76,13 @@ const MENU: MenuItem[] = [
 export function Sidebar({
   permissions,
   onNavigate,
+  clinicName,
+  clinicLogoUrl,
 }: {
   permissions: string[];
   onNavigate?: () => void;
+  clinicName: string;
+  clinicLogoUrl?: string;
 }) {
   const pathname = usePathname();
   const items = MENU.filter((m) => !m.permission || permissions.includes(m.permission));
@@ -122,7 +126,7 @@ export function Sidebar({
           <Leaf className="h-5 w-5 text-amber-300" />
         </span>
         <div>
-          <p className="text-sm font-bold tracking-wide">ĐÔNG Y ĐƯỜNG</p>
+          <p className="text-sm font-bold tracking-wide">{clinicName}</p>
           <p className="text-[11px] text-emerald-300/80">Phòng thuốc Đông y</p>
         </div>
       </div>
