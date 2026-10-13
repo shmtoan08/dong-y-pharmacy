@@ -128,6 +128,23 @@ export async function resetSettings(): Promise<{ error?: string }> {
   return {};
 }
 
+/** Lấy thông tin branding công khai (tên + logo) — KHÔNG cần đăng nhập, dùng cho trang login */
+export async function getPublicClinicBranding(): Promise<{
+  clinicName: string;
+  clinicLogoUrl: string;
+}> {
+  const { rows } = await db.query<{ key: string; value: string }>(
+    `SELECT key, value FROM system_settings WHERE key IN ('clinic_name', 'clinic_logo_url')`
+  );
+  let clinicName = "ĐÔNG Y ĐƯỜNG";
+  let clinicLogoUrl = "";
+  for (const r of rows) {
+    if (r.key === "clinic_name" && r.value) clinicName = r.value;
+    if (r.key === "clinic_logo_url") clinicLogoUrl = r.value || "";
+  }
+  return { clinicName, clinicLogoUrl };
+}
+
 /** Lấy tên phòng khám cho header/print */
 export async function getClinicName(): Promise<string> {
   const { rows } = await db.query<{ value: string }>(
