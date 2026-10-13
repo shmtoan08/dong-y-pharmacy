@@ -1,5 +1,5 @@
 import "server-only";
-import { Pool, type QueryResult, type QueryResultRow, type PoolClient } from "pg";
+import { Client, type QueryResult, type QueryResultRow } from "pg";
 import { getCloudflareContext } from "@opennextjs/cloudflare";
 
 // Lay connection string: uu tien Hyperdrive (Cloudflare) → fallback DATABASE_URL (local/VM)
@@ -18,15 +18,19 @@ function getConnectionString(): string {
   return cs;
 }
 
-// Lazy singleton — tránh tạo pool lúc build time
-let pool: Pool | null = null;
-
-export function getPool(): Pool {
-  if (!pool) {
-    const connectionString = getConnectionString();
-    pool = new Pool({ connectionString, max: 10 });
+// Trên Workers: TẠO CLIENT MỚI cho mỗi query, KHÔNG dùng Pool singleton.
+// Lý do: Pool của pg không tương thích với mô hình stateless của Workers —
+// khi isolate được tái sử dụng, Pool có thể kẹt (hết connection) gây treo vĩnh viễn.
+// Hyperdrive tự quản lý connection pool ở phía nó, nên tạo Client mới rất rẻ.
+async function withClient<T>(fn: (client: Client) => Promise<T>): Promise<T> {
+  const client = new Client({ connectionString: getConnectionString() });
+  await client.connect();
+  try {
+    return await fn(client);
+  } finally {
+    // Đóng kết nối (không await để tránh treo nếu đã lỗi)
+    await client.end().catch(() => {});
   }
-  return pool;
 }
 
 export const db = {
@@ -35,7 +39,7 @@ export const db = {
     // pg yêu cầu any[] cho params — bất khả kháng, đã cách ly ở wrapper này
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     params?: any[],
-  ): Promise<QueryResult<T>> => getPool().query<T>(text, params),
+  ): Promise<QueryResult<T>> => withClient((c) => c.query<T>(text, params)),
 };
 
 interface TxClient {
@@ -53,19 +57,23 @@ interface TxClient {
 export async function withTransaction<T>(
   fn: (tx: TxClient) => Promise<T>,
 ): Promise<T> {
-  const client: PoolClient = await getPool().connect();
-  try {
+  return withClient(async (client) => {
     await client.query("BEGIN");
-    const tx: TxClient = {
-      query: (text, params) => client.query(text, params),
-    };
-    const result = await fn(tx);
-    await client.query("COMMIT");
-    return result;
-  } catch (e) {
-    await client.query("ROLLBACK");
-    throw e;
-  } finally {
-    client.release();
-  }
+    try {
+      const tx: TxClient = {
+        query: (text, params) => client.query(text, params),
+      };
+      const result = await fn(tx);
+      await client.query("COMMIT");
+      return result;
+    } catch (e) {
+      await client.query("ROLLBACK").catch(() => {});
+      throw e;
+    }
+  });
+}
+
+// Giữ getPool để tương thích ngược nếu code nào còn dùng (không khuyến khích)
+export function getPool(): never {
+  throw new Error("getPool đã bị loại bỏ — dùng db.query trực tiếp (tạo Client mới mỗi lần)");
 }
