@@ -1,6 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { revalidatePath } from "next/cache";
 import { db, withTransaction } from "@/lib/db";
 import { requireRole, getSessionUser } from "@/lib/auth";
 import { audit } from "@/lib/audit";
@@ -228,6 +229,7 @@ export async function toggleFormulaActive(id: string): Promise<void> {
     newActive,
     id,
   ]);
+  revalidatePath("/formulas");
 
   await audit({
     userId: user.id,
@@ -265,6 +267,7 @@ export async function deleteFormula(id: string): Promise<void> {
   }
 
   await db.query(`DELETE FROM prescription_templates WHERE id = $1`, [id]);
+  revalidatePath("/formulas");
 
   await audit({
     userId: user.id,
