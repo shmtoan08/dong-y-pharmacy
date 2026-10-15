@@ -25,6 +25,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { HerbNameAutocomplete } from "@/components/shared/HerbNameAutocomplete";
 
 interface FormulaFormProps {
   mode: "create" | "edit";
@@ -195,8 +196,11 @@ export function FormulaForm({ mode, editId, defaultValues }: FormulaFormProps) {
               className="grid grid-cols-[1fr_100px_1fr_auto] items-start gap-2"
             >
               <div className="space-y-1">
-                <Input
-                  {...form.register(`items.${i}.herb_name`)}
+                <HerbNameAutocomplete
+                  value={form.watch(`items.${i}.herb_name`) ?? ""}
+                  onChange={(v) =>
+                    form.setValue(`items.${i}.herb_name`, v, { shouldDirty: true })
+                  }
                   placeholder={`Vị ${i + 1}: Hoàng Kỳ`}
                 />
                 {form.formState.errors.items?.[i]?.herb_name && (
