@@ -11,7 +11,7 @@ export default async function NewClinicalCasePage() {
     `SELECT id, name FROM diseases WHERE is_active = true ORDER BY name`,
   );
   const { rows: templates } = await db.query<{ id: string; name: string; code: string }>(
-    `SELECT id, name, code FROM prescription_templates WHERE is_active = true ORDER BY name`,
+    `SELECT DISTINCT ON (code) id, name, code FROM prescription_templates WHERE is_active = true ORDER BY code, version DESC`,
   );
 
   return (

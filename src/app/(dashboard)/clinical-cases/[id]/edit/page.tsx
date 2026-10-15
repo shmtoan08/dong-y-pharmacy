@@ -25,7 +25,7 @@ export default async function EditClinicalCasePage({
   const c = rows[0];
 
   const { rows: templates } = await db.query<{ id: string; name: string; code: string }>(
-    `SELECT id, name, code FROM prescription_templates WHERE is_active = true ORDER BY name`,
+    `SELECT DISTINCT ON (code) id, name, code FROM prescription_templates WHERE is_active = true ORDER BY code, version DESC`,
   );
 
   const boundAction = updateClinicalCase.bind(null, id);

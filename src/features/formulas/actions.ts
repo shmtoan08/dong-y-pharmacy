@@ -189,6 +189,12 @@ export async function updateFormula(
       );
       const nid = rows[0].id;
       await insertItemsTx(tx, nid, d.items);
+      // Tắt các version cũ của cùng code — chỉ version mới nhất mới active
+      await tx.query(
+        `UPDATE prescription_templates SET is_active = false
+         WHERE code = $1 AND id != $2`,
+        [code, nid],
+      );
       return nid;
     });
   } catch (e) {
