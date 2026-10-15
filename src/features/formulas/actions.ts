@@ -238,6 +238,43 @@ export async function toggleFormulaActive(id: string): Promise<void> {
   });
 }
 
+/**
+ * Xóa bài thuốc (hard delete).
+ * Chặn nếu đã có đơn thuốc đã xác nhận dùng bài này (giữ toàn vẹn lịch sử khám).
+ * Đơn nháp / bệnh án kinh nghiệm trỏ tới bài này sẽ bị gỡ liên kết (SET NULL).
+ */
+export async function deleteFormula(id: string): Promise<void> {
+  const user = await requirePractitioner();
+
+  const { rows } = await db.query(
+    `SELECT code, version FROM prescription_templates WHERE id = $1`,
+    [id],
+  );
+  if (rows.length === 0) throw new Error("Không tìm thấy bài thuốc");
+
+  // Chặn xóa nếu đã có đơn thuốc đã xác nhận
+  const { rows: used } = await db.query<{ cnt: number }>(
+    `SELECT COUNT(*)::int AS cnt FROM prescriptions
+     WHERE template_id = $1 AND status IN ('confirmed', 'completed')`,
+    [id],
+  );
+  if (used[0].cnt > 0) {
+    throw new Error(
+      `Không thể xóa: đã có ${used[0].cnt} đơn thuốc đã xác nhận dùng bài thuốc này. Hãy dùng "Ngưng dùng" thay vì xóa.`,
+    );
+  }
+
+  await db.query(`DELETE FROM prescription_templates WHERE id = $1`, [id]);
+
+  await audit({
+    userId: user.id,
+    action: "DELETE_FORMULA",
+    tableName: "prescription_templates",
+    rowId: id,
+    oldValue: { code: rows[0].code, version: rows[0].version },
+  });
+}
+
 export async function duplicateFormula(id: string): Promise<string> {
   const user = await requirePractitioner();
 

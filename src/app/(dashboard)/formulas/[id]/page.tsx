@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/table";
 import { CATEGORY_LABEL } from "@/features/formulas/schemas";
 import { FormulaDetailActions } from "./FormulaDetailActions";
+import { DeleteFormulaButton } from "../DeleteFormulaButton";
 
 export default async function FormulaDetailPage({
   params,
@@ -222,9 +223,12 @@ export default async function FormulaDetailPage({
           <Link href="/formulas">← Danh sách</Link>
         </Button>
         {canEdit && (
-          <Button asChild className="bg-emerald-800 hover:bg-emerald-900">
-            <Link href={`/formulas/${t.id}/edit`}>Sửa (tạo v{Number(t.version) + 1})</Link>
-          </Button>
+          <>
+            <Button asChild className="bg-emerald-800 hover:bg-emerald-900">
+              <Link href={`/formulas/${t.id}/edit`}>Sửa (tạo v{Number(t.version) + 1})</Link>
+            </Button>
+            <DeleteFormulaButton formulaId={t.id} formulaName={t.name} variant="button" />
+          </>
         )}
       </div>
     </div>

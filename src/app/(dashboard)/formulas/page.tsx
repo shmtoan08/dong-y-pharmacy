@@ -4,10 +4,11 @@ import { db } from "@/lib/db";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Eye, Pencil } from "lucide-react";
+import { Plus, Pencil, Trash2 } from "lucide-react";
 import { CATEGORY_LABEL } from "@/features/formulas/schemas";
 import { FormulaFilterToolbar } from "./FormulaFilterToolbar";
 import { DuplicateFormulaButton } from "./DuplicateFormulaButton";
+import { DeleteFormulaButton } from "./DeleteFormulaButton";
 import { PageSizeSelect } from "../visits/PageSizeSelect";
 import { Tooltip, TooltipProvider } from "@/components/ui/tooltip";
 import { HoverCard } from "@/components/ui/hover-card";
@@ -223,17 +224,6 @@ export default async function FormulasListPage({
                       </td>
                       <td className="whitespace-nowrap px-4 py-3">
                         <div className="flex justify-end gap-1">
-                          <Tooltip label="Xem chi tiết">
-                            <Link href={`/formulas/${r.id}`}>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-8 w-8 text-stone-500 hover:text-emerald-700"
-                              >
-                                <Eye className="h-4 w-4" />
-                              </Button>
-                            </Link>
-                          </Tooltip>
                           {canEdit && (
                             <>
                               <DuplicateFormulaButton formulaId={r.id} />
@@ -248,6 +238,7 @@ export default async function FormulasListPage({
                                   </Button>
                                 </Link>
                               </Tooltip>
+                              <DeleteFormulaButton formulaId={r.id} formulaName={r.name} />
                             </>
                           )}
                         </div>
@@ -290,15 +281,18 @@ export default async function FormulasListPage({
                     <div className="flex gap-2 pt-1">
                       <Link href={`/formulas/${r.id}`}>
                         <Button variant="outline" size="sm">
-                          <Eye className="mr-1 h-3.5 w-3.5" /> Chi tiết
+                          Chi tiết
                         </Button>
                       </Link>
                       {canEdit && (
-                        <Link href={`/formulas/${r.id}/edit`}>
-                          <Button variant="outline" size="sm">
-                            <Pencil className="mr-1 h-3.5 w-3.5" /> Sửa
-                          </Button>
-                        </Link>
+                        <>
+                          <Link href={`/formulas/${r.id}/edit`}>
+                            <Button variant="outline" size="sm">
+                              <Pencil className="mr-1 h-3.5 w-3.5" /> Sửa
+                            </Button>
+                          </Link>
+                          <DeleteFormulaButton formulaId={r.id} formulaName={r.name} />
+                        </>
                       )}
                     </div>
                   </CardContent>
