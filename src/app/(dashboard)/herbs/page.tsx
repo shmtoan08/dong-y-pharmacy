@@ -71,6 +71,8 @@ export default async function HerbsPage({
     tinh?: string;
     quykinh?: string;
     stock?: string;
+    type?: string;
+    group?: string;
     page?: string;
     size?: string;
   }>;
@@ -83,6 +85,11 @@ export default async function HerbsPage({
   const stockFilter = ["available", "low", "out"].includes(sp.stock ?? "")
     ? sp.stock!
     : "all";
+  // Mặc định chỉ hiện thuốc Bắc
+  const typeFilter = ["bac", "nam", "ca_hai", "all"].includes(sp.type ?? "")
+    ? sp.type!
+    : "bac";
+  const groupFilter = sp.group ?? "all";
   const pageSize = PAGE_SIZES.includes(Number(sp.size)) ? Number(sp.size) : 10;
   const page = Math.max(1, Number(sp.page) || 1);
 
@@ -94,6 +101,12 @@ export default async function HerbsPage({
     `SELECT DISTINCT unnest(quy_kinh) AS k FROM herbs WHERE quy_kinh IS NOT NULL ORDER BY k`,
   );
   const quyKinhOptions = qkRes.rows.map((r) => r.k);
+
+  // Nhóm thuốc options
+  const grpRes = await db.query<{ id: string; name: string }>(
+    `SELECT id, name FROM herb_groups ORDER BY sort_order`,
+  );
+  const groupOptions = grpRes.rows;
 
   const where: string[] = [];
   const params: unknown[] = [];
@@ -113,6 +126,16 @@ export default async function HerbsPage({
   if (quyKinhFilter !== "all") {
     where.push(`$${i} = ANY(h.quy_kinh)`);
     params.push(quyKinhFilter);
+    i++;
+  }
+  if (typeFilter !== "all") {
+    where.push(`h.medicine_type = $${i}`);
+    params.push(typeFilter);
+    i++;
+  }
+  if (groupFilter !== "all") {
+    where.push(`h.herb_group_id = $${i}`);
+    params.push(groupFilter);
     i++;
   }
   if (stockFilter === "out") {
@@ -150,6 +173,8 @@ export default async function HerbsPage({
       tinh: tinhFilter,
       quykinh: quyKinhFilter,
       stock: stockFilter,
+      type: typeFilter,
+      group: groupFilter,
       page: String(safePage),
       size: String(pageSize),
       ...overrides,
@@ -159,7 +184,8 @@ export default async function HerbsPage({
         v &&
         !(k === "tinh" && v === "all") &&
         !(k === "quykinh" && v === "all") &&
-        !(k === "stock" && v === "all"),
+        !(k === "stock" && v === "all") &&
+        !(k === "group" && v === "all"),
     );
     return all.length
       ? `/herbs?${all.map(([k, v]) => `${k}=${encodeURIComponent(v)}`).join("&")}`
@@ -196,7 +222,10 @@ export default async function HerbsPage({
           initialTinh={tinhFilter}
           initialQuyKinh={quyKinhFilter}
           initialStock={stockFilter}
+          initialType={typeFilter}
+          initialGroup={groupFilter}
           quyKinhOptions={quyKinhOptions}
+          groupOptions={groupOptions}
         />
 
         {rows.length === 0 ? (

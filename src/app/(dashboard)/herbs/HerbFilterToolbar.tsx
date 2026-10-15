@@ -30,19 +30,32 @@ const STOCK_FILTERS = [
   { value: "out", label: "Hết hàng" },
 ];
 
+const TYPE_FILTERS = [
+  { value: "bac", label: "Thuốc Bắc" },
+  { value: "nam", label: "Thuốc Nam" },
+  { value: "ca_hai", label: "Bắc & Nam" },
+  { value: "all", label: "Loại thuốc: Tất cả" },
+];
+
 /** Toolbar lọc tự động cho trang Danh mục vị thuốc */
 export function HerbFilterToolbar({
   initialQ,
   initialTinh,
   initialQuyKinh,
   initialStock,
+  initialType,
+  initialGroup,
   quyKinhOptions,
+  groupOptions,
 }: {
   initialQ: string;
   initialTinh: string;
   initialQuyKinh: string;
   initialStock: string;
+  initialType: string;
+  initialGroup: string;
   quyKinhOptions: string[];
+  groupOptions: { id: string; name: string }[];
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -54,7 +67,7 @@ export function HerbFilterToolbar({
     setQ(searchParams.get("q") ?? "");
   }, [searchParams]);
 
-  const apply = (next: { q?: string; tinh?: string; quyKinh?: string; stock?: string }) => {
+  const apply = (next: { q?: string; tinh?: string; quyKinh?: string; stock?: string; type?: string; group?: string }) => {
     const params = new URLSearchParams(searchParams.toString());
     if (next.q !== undefined) {
       if (next.q.trim()) params.set("q", next.q.trim());
@@ -63,6 +76,11 @@ export function HerbFilterToolbar({
     if (next.tinh !== undefined) params.set("tinh", next.tinh);
     if (next.quyKinh !== undefined) params.set("quykinh", next.quyKinh);
     if (next.stock !== undefined) params.set("stock", next.stock);
+    if (next.type !== undefined) params.set("type", next.type);
+    if (next.group !== undefined) {
+      if (next.group === "all") params.delete("group");
+      else params.set("group", next.group);
+    }
     params.set("page", "1");
     router.push(`/herbs?${params.toString()}`);
   };
@@ -77,7 +95,9 @@ export function HerbFilterToolbar({
     q.trim() !== "" ||
     initialTinh !== "all" ||
     initialQuyKinh !== "all" ||
-    initialStock !== "all";
+    initialStock !== "all" ||
+    initialType !== "bac" ||
+    initialGroup !== "all";
 
   return (
     <>
@@ -104,6 +124,31 @@ export function HerbFilterToolbar({
             </button>
           )}
         </div>
+        <Select value={initialType} onValueChange={(v) => apply({ type: v })}>
+          <SelectTrigger className="w-40">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {TYPE_FILTERS.map((t) => (
+              <SelectItem key={t.value} value={t.value}>
+                {t.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Select value={initialGroup} onValueChange={(v) => apply({ group: v })}>
+          <SelectTrigger className="w-52">
+            <SelectValue placeholder="Nhóm thuốc: Tất cả" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Nhóm thuốc: Tất cả</SelectItem>
+            {groupOptions.map((g) => (
+              <SelectItem key={g.id} value={g.id}>
+                {g.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
         <Select value={initialTinh} onValueChange={(v) => apply({ tinh: v })}>
           <SelectTrigger className="w-36">
             <SelectValue />
@@ -146,7 +191,7 @@ export function HerbFilterToolbar({
             type="button"
             variant="ghost"
             size="sm"
-            onClick={() => router.push("/herbs")}
+            onClick={() => router.push("/herbs?type=bac")}
           >
             Xóa lọc
           </Button>
