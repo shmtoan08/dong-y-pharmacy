@@ -28,6 +28,12 @@ export interface Herb {
   cong_nang: string | null;
   kieng_ky: string | null;
   vi_tri_hoc_tu: string | null;
+  medicine_type: string | null;
+  image_url: string | null;
+  preparation: string | null;
+  usage: string | null;
+  herb_group_id: string | null;
+  group_name: string | null;
   base_unit: string;
   price_per_unit: number | null;
   stock_quantity: number;
@@ -68,7 +74,10 @@ export async function searchHerbs(query: string, limit = 10): Promise<Herb[]> {
 
 export async function getHerb(id: string): Promise<(Herb & { aliases: HerbAlias[] }) | null> {
   await requireRole("admin", "practitioner", "dispenser");
-  const { rows } = await db.query<Herb>(`SELECT * FROM herbs WHERE id = $1`, [id]);
+  const { rows } = await db.query<Herb>(
+    `SELECT h.*, g.name AS group_name FROM herbs h LEFT JOIN herb_groups g ON g.id = h.herb_group_id WHERE h.id = $1`,
+    [id],
+  );
   if (rows.length === 0) return null;
   const { rows: aliases } = await db.query<HerbAlias>(
     `SELECT id, alias_name, alias_key FROM herb_aliases WHERE herb_id = $1 ORDER BY alias_name`,
