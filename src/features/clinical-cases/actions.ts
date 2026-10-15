@@ -1,7 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { db } from "@/lib/db";
+import { db, withTransaction } from "@/lib/db";
 import { requireRole } from "@/lib/auth";
 import { audit } from "@/lib/audit";
 
@@ -13,9 +13,8 @@ async function requirePractitioner() {
   return requireRole("admin", "practitioner");
 }
 
-export interface ClinicalCaseInput {
-  disease_name: string;
-  pattern?: string | null;
+export interface PatternInput {
+  pattern: string;
   treatment_principle?: string | null;
   symptoms?: string | null;
   template_id?: string | null;
@@ -25,42 +24,116 @@ export interface ClinicalCaseInput {
   source?: string | null;
 }
 
+function parsePatterns(formData: FormData): PatternInput[] | null {
+  const raw = formData.get("patterns");
+  if (typeof raw !== "string") return null;
+  try {
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed) || parsed.length === 0) return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Tạo bệnh danh (mới hoặc dùng sẵn) + nhiều biện chứng cùng lúc.
+ * Mỗi biện chứng có đầy đủ data riêng: pháp trị, triệu chứng, bài thuốc, cách dùng, hiệu quả, bàn luận.
+ */
+export async function createDiseaseWithCases(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const user = await requirePractitioner();
+  const diseaseName = String(formData.get("disease_name") ?? "").trim();
+  const diseaseDescription = String(formData.get("disease_description") ?? "").trim() || null;
+  const existingDiseaseId = String(formData.get("existing_disease_id") ?? "").trim() || null;
+  const patterns = parsePatterns(formData);
+
+  if (!diseaseName && !existingDiseaseId) {
+    return { error: "Vui lòng nhập tên bệnh hoặc chọn bệnh đã có" };
+  }
+  if (!patterns) return { error: "Vui lòng thêm ít nhất 1 biện chứng" };
+  for (const p of patterns) {
+    if (!p.pattern?.trim()) return { error: "Mỗi biện chứng cần có tên biện chứng" };
+  }
+
+  let diseaseId = existingDiseaseId;
+
+  await withTransaction(async (tx) => {
+    // Tạo bệnh mới nếu chưa chọn bệnh sẵn có
+    if (!diseaseId) {
+      const { rows } = await tx.query<{ id: string }>(
+        `INSERT INTO diseases (name, description, created_by)
+         VALUES ($1, $2, $3)
+         ON CONFLICT (name) DO UPDATE SET description = COALESCE(EXCLUDED.description, diseases.description)
+         RETURNING id`,
+        [diseaseName, diseaseDescription, user.id],
+      );
+      diseaseId = rows[0].id;
+    }
+
+    // Tạo từng biện chứng
+    for (const p of patterns) {
+      await tx.query(
+        `INSERT INTO clinical_cases
+           (disease_id, pattern, treatment_principle, symptoms, template_id,
+            usage_instruction, outcome, discussion, source, created_by)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+        [
+          diseaseId,
+          p.pattern.trim(),
+          p.treatment_principle?.trim() || null,
+          p.symptoms?.trim() || null,
+          p.template_id?.trim() || null,
+          p.usage_instruction?.trim() || null,
+          p.outcome?.trim() || null,
+          p.discussion?.trim() || null,
+          p.source?.trim() || null,
+          user.id,
+        ],
+      );
+    }
+  });
+
+  await audit({
+    userId: user.id,
+    action: "CREATE_DISEASE_WITH_CASES",
+    tableName: "diseases",
+    rowId: diseaseId!,
+    newValue: { disease_name: diseaseName, pattern_count: patterns.length },
+  });
+
+  redirect(`/clinical-cases?disease=${diseaseId}`);
+}
+
+/** Tạo 1 biện chứng mới cho bệnh đã có (từ trang chi tiết bệnh) */
 export async function createClinicalCase(
   _prev: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
   const user = await requirePractitioner();
-  const disease_name = String(formData.get("disease_name") ?? "").trim();
-  if (!disease_name) return { error: "Vui lòng nhập bệnh danh" };
-
-  const input: ClinicalCaseInput = {
-    disease_name,
-    pattern: String(formData.get("pattern") ?? "").trim() || null,
-    treatment_principle: String(formData.get("treatment_principle") ?? "").trim() || null,
-    symptoms: String(formData.get("symptoms") ?? "").trim() || null,
-    template_id: String(formData.get("template_id") ?? "").trim() || null,
-    usage_instruction: String(formData.get("usage_instruction") ?? "").trim() || null,
-    outcome: String(formData.get("outcome") ?? "").trim() || null,
-    discussion: String(formData.get("discussion") ?? "").trim() || null,
-    source: String(formData.get("source") ?? "").trim() || null,
-  };
+  const diseaseId = String(formData.get("disease_id") ?? "").trim();
+  const pattern = String(formData.get("pattern") ?? "").trim();
+  if (!diseaseId) return { error: "Thiếu bệnh danh" };
+  if (!pattern) return { error: "Vui lòng nhập biện chứng" };
 
   const { rows } = await db.query<{ id: string }>(
     `INSERT INTO clinical_cases
-       (disease_name, pattern, treatment_principle, symptoms, template_id,
+       (disease_id, pattern, treatment_principle, symptoms, template_id,
         usage_instruction, outcome, discussion, source, created_by)
      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
      RETURNING id`,
     [
-      input.disease_name,
-      input.pattern,
-      input.treatment_principle,
-      input.symptoms,
-      input.template_id,
-      input.usage_instruction,
-      input.outcome,
-      input.discussion,
-      input.source,
+      diseaseId,
+      pattern,
+      String(formData.get("treatment_principle") ?? "").trim() || null,
+      String(formData.get("symptoms") ?? "").trim() || null,
+      String(formData.get("template_id") ?? "").trim() || null,
+      String(formData.get("usage_instruction") ?? "").trim() || null,
+      String(formData.get("outcome") ?? "").trim() || null,
+      String(formData.get("discussion") ?? "").trim() || null,
+      String(formData.get("source") ?? "").trim() || null,
       user.id,
     ],
   );
@@ -69,7 +142,7 @@ export async function createClinicalCase(
     action: "CREATE_CLINICAL_CASE",
     tableName: "clinical_cases",
     rowId: rows[0].id,
-    newValue: { disease_name: input.disease_name },
+    newValue: { pattern },
   });
   redirect(`/clinical-cases/${rows[0].id}`);
 }
@@ -80,37 +153,24 @@ export async function updateClinicalCase(
   formData: FormData,
 ): Promise<ActionState> {
   const user = await requirePractitioner();
-  const disease_name = String(formData.get("disease_name") ?? "").trim();
-  if (!disease_name) return { error: "Vui lòng nhập bệnh danh" };
-
-  const input: ClinicalCaseInput = {
-    disease_name,
-    pattern: String(formData.get("pattern") ?? "").trim() || null,
-    treatment_principle: String(formData.get("treatment_principle") ?? "").trim() || null,
-    symptoms: String(formData.get("symptoms") ?? "").trim() || null,
-    template_id: String(formData.get("template_id") ?? "").trim() || null,
-    usage_instruction: String(formData.get("usage_instruction") ?? "").trim() || null,
-    outcome: String(formData.get("outcome") ?? "").trim() || null,
-    discussion: String(formData.get("discussion") ?? "").trim() || null,
-    source: String(formData.get("source") ?? "").trim() || null,
-  };
+  const pattern = String(formData.get("pattern") ?? "").trim();
+  if (!pattern) return { error: "Vui lòng nhập biện chứng" };
 
   await db.query(
     `UPDATE clinical_cases SET
-       disease_name = $1, pattern = $2, treatment_principle = $3,
-       symptoms = $4, template_id = $5, usage_instruction = $6,
-       outcome = $7, discussion = $8, source = $9, updated_at = NOW()
-     WHERE id = $10`,
+       pattern = $1, treatment_principle = $2, symptoms = $3,
+       template_id = $4, usage_instruction = $5,
+       outcome = $6, discussion = $7, source = $8, updated_at = NOW()
+     WHERE id = $9`,
     [
-      input.disease_name,
-      input.pattern,
-      input.treatment_principle,
-      input.symptoms,
-      input.template_id,
-      input.usage_instruction,
-      input.outcome,
-      input.discussion,
-      input.source,
+      pattern,
+      String(formData.get("treatment_principle") ?? "").trim() || null,
+      String(formData.get("symptoms") ?? "").trim() || null,
+      String(formData.get("template_id") ?? "").trim() || null,
+      String(formData.get("usage_instruction") ?? "").trim() || null,
+      String(formData.get("outcome") ?? "").trim() || null,
+      String(formData.get("discussion") ?? "").trim() || null,
+      String(formData.get("source") ?? "").trim() || null,
       id,
     ],
   );
@@ -119,7 +179,7 @@ export async function updateClinicalCase(
     action: "UPDATE_CLINICAL_CASE",
     tableName: "clinical_cases",
     rowId: id,
-    newValue: { disease_name: input.disease_name },
+    newValue: { pattern },
   });
   redirect(`/clinical-cases/${id}`);
 }

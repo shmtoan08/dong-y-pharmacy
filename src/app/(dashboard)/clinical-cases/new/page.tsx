@@ -1,12 +1,15 @@
 import { requireRole } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { createClinicalCase } from "@/features/clinical-cases/actions";
-import { ClinicalCaseForm } from "../ClinicalCaseForm";
+import { createDiseaseWithCases } from "@/features/clinical-cases/actions";
+import { DiseaseWithCasesForm } from "../DiseaseWithCasesForm";
 import { BackButton } from "@/components/shared/BackButton";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 export default async function NewClinicalCasePage() {
   await requireRole("admin", "practitioner");
+  const { rows: diseases } = await db.query<{ id: string; name: string }>(
+    `SELECT id, name FROM diseases WHERE is_active = true ORDER BY name`,
+  );
   const { rows: templates } = await db.query<{ id: string; name: string; code: string }>(
     `SELECT id, name, code FROM prescription_templates WHERE is_active = true ORDER BY name`,
   );
@@ -17,13 +20,14 @@ export default async function NewClinicalCasePage() {
       <h1 className="text-2xl font-bold">Thêm bệnh án kinh nghiệm</h1>
       <Card>
         <CardHeader>
-          <CardTitle>Thông tin bệnh án</CardTitle>
+          <CardTitle>Bệnh + các biện chứng</CardTitle>
         </CardHeader>
         <CardContent>
-          <ClinicalCaseForm
-            action={createClinicalCase}
+          <DiseaseWithCasesForm
+            action={createDiseaseWithCases}
+            diseases={diseases}
             templates={templates}
-            submitLabel="Tạo bệnh án"
+            submitLabel="Lưu bệnh án"
           />
         </CardContent>
       </Card>

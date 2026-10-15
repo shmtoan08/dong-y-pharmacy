@@ -55,10 +55,11 @@ export default async function FormulaDetailPage({
     pattern: string | null;
     treatment_principle: string | null;
   }>(
-    `SELECT id, disease_name, pattern, treatment_principle
-     FROM clinical_cases
-     WHERE template_id = $1 AND is_active = true
-     ORDER BY created_at DESC`,
+    `SELECT c.id, d.name AS disease_name, c.pattern, c.treatment_principle
+     FROM clinical_cases c
+     LEFT JOIN diseases d ON d.id = c.disease_id
+     WHERE c.template_id = $1 AND c.is_active = true
+     ORDER BY c.created_at DESC`,
     [id],
   );
 

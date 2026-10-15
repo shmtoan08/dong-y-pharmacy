@@ -15,7 +15,10 @@ export default async function EditClinicalCasePage({
   const { id } = await params;
 
   const { rows } = await db.query(
-    `SELECT * FROM clinical_cases WHERE id = $1`,
+    `SELECT c.*, d.name AS disease_name
+     FROM clinical_cases c
+     LEFT JOIN diseases d ON d.id = c.disease_id
+     WHERE c.id = $1`,
     [id],
   );
   if (rows.length === 0) notFound();
@@ -30,16 +33,18 @@ export default async function EditClinicalCasePage({
   return (
     <div className="mx-auto max-w-4xl space-y-6">
       <BackButton href={`/clinical-cases/${id}`} />
-      <h1 className="text-2xl font-bold">Sửa bệnh án: {c.disease_name}</h1>
+      <h1 className="text-2xl font-bold">
+        Sửa biện chứng: {c.pattern ?? "(Chưa có tên)"}
+      </h1>
+      <p className="text-sm text-muted-foreground">Bệnh: {c.disease_name}</p>
       <Card>
         <CardHeader>
-          <CardTitle>Thông tin bệnh án</CardTitle>
+          <CardTitle>Thông tin biện chứng</CardTitle>
         </CardHeader>
         <CardContent>
           <ClinicalCaseForm
             action={boundAction}
             initial={{
-              disease_name: c.disease_name,
               pattern: c.pattern,
               treatment_principle: c.treatment_principle,
               symptoms: c.symptoms,

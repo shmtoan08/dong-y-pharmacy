@@ -15,7 +15,6 @@ import {
 import type { ActionState } from "@/features/clinical-cases/actions";
 
 export interface ClinicalCaseFormData {
-  disease_name: string;
   pattern: string | null;
   treatment_principle: string | null;
   symptoms: string | null;
@@ -26,6 +25,7 @@ export interface ClinicalCaseFormData {
   source: string | null;
 }
 
+/** Form sửa 1 biện chứng (bệnh danh không sửa ở đây) */
 export function ClinicalCaseForm({
   action,
   initial,
@@ -46,25 +46,15 @@ export function ClinicalCaseForm({
         <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{state.error}</p>
       )}
 
-      <div className="space-y-2">
-        <Label htmlFor="disease_name">Bệnh danh *</Label>
-        <Input
-          id="disease_name"
-          name="disease_name"
-          defaultValue={initial?.disease_name ?? ""}
-          placeholder="VD: Viêm đa khớp dạng thấp"
-          required
-        />
-      </div>
-
       <div className="grid gap-4 md:grid-cols-2">
         <div className="space-y-2">
-          <Label htmlFor="pattern">Biện chứng</Label>
+          <Label htmlFor="pattern">Biện chứng *</Label>
           <Input
             id="pattern"
             name="pattern"
             defaultValue={initial?.pattern ?? ""}
             placeholder="VD: Thấp nhiệt đọng lại ở khớp"
+            required
           />
         </div>
         <div className="space-y-2">

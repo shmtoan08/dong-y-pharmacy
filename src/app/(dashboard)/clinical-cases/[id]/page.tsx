@@ -30,9 +30,11 @@ export default async function ClinicalCaseDetailPage({
   const canEdit = user.role === "admin" || user.role === "practitioner";
 
   const { rows } = await db.query(
-    `SELECT c.*, t.name AS template_name, t.code AS template_code,
+    `SELECT c.*, d.name AS disease_name, d.description AS disease_description,
+            t.name AS template_name, t.code AS template_code,
             t.version AS template_version, u.full_name AS created_by_name
      FROM clinical_cases c
+     LEFT JOIN diseases d ON d.id = c.disease_id
      LEFT JOIN prescription_templates t ON t.id = c.template_id
      LEFT JOIN users u ON u.id = c.created_by
      WHERE c.id = $1`,
@@ -40,6 +42,17 @@ export default async function ClinicalCaseDetailPage({
   );
   if (rows.length === 0) notFound();
   const c = rows[0];
+
+  // Các biện chứng khác của cùng bệnh
+  const { rows: siblings } = await db.query<{
+    id: string;
+    pattern: string | null;
+  }>(
+    `SELECT id, pattern FROM clinical_cases
+     WHERE disease_id = $1 AND id != $2 AND is_active = true
+     ORDER BY created_at`,
+    [c.disease_id, id],
+  );
 
   // Vị thuốc của bài thuốc (nếu có)
   let items: { herb_name: string; dosage_text: string; note: string | null }[] = [];
@@ -62,8 +75,9 @@ export default async function ClinicalCaseDetailPage({
       <BackButton href="/clinical-cases" />
       <div className="flex items-start justify-between">
         <div>
+          <p className="text-sm text-muted-foreground">{c.disease_name}</p>
           <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-bold">{c.disease_name}</h1>
+            <h1 className="text-2xl font-bold">{c.pattern ?? "(Chưa có biện chứng)"}</h1>
             <Badge
               variant={c.is_active ? "default" : "secondary"}
               className={c.is_active ? "bg-emerald-100 text-emerald-800 hover:bg-emerald-100" : ""}
@@ -76,6 +90,25 @@ export default async function ClinicalCaseDetailPage({
           )}
         </div>
       </div>
+
+      {siblings.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Các biện chứng khác của {c.disease_name}</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex flex-wrap gap-2">
+              {siblings.map((s) => (
+                <Link key={s.id} href={`/clinical-cases/${s.id}`}>
+                  <Badge variant="outline" className="cursor-pointer hover:bg-emerald-50">
+                    {s.pattern ?? "(Chưa có tên)"}
+                  </Badge>
+                </Link>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <Card>
         <CardHeader>
