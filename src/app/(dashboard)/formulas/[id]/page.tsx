@@ -48,6 +48,20 @@ export default async function FormulaDetailPage({
     [id],
   );
 
+  // Bệnh án kinh nghiệm dùng bài thuốc này
+  const { rows: cases } = await db.query<{
+    id: string;
+    disease_name: string;
+    pattern: string | null;
+    treatment_principle: string | null;
+  }>(
+    `SELECT id, disease_name, pattern, treatment_principle
+     FROM clinical_cases
+     WHERE template_id = $1 AND is_active = true
+     ORDER BY created_at DESC`,
+    [id],
+  );
+
   // Lịch sử version của cùng code
   const { rows: versions } = await db.query(
     `SELECT id, version, created_at, is_active
@@ -133,6 +147,42 @@ export default async function FormulaDetailPage({
               ))}
             </TableBody>
           </Table>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Kinh nghiệm lâm sàng ({cases.length})</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {cases.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              Chưa có bệnh án kinh nghiệm nào dùng bài thuốc này.
+            </p>
+          ) : (
+            <div className="space-y-3">
+              {cases.map((cs) => (
+                <div key={cs.id} className="border-b pb-3 last:border-0 last:pb-0">
+                  <Link
+                    href={`/clinical-cases/${cs.id}`}
+                    className="font-semibold text-emerald-800 hover:underline"
+                  >
+                    {cs.disease_name}
+                  </Link>
+                  {cs.pattern && (
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      Biện chứng: {cs.pattern}
+                    </p>
+                  )}
+                  {cs.treatment_principle && (
+                    <p className="text-sm text-muted-foreground">
+                      Pháp trị: {cs.treatment_principle}
+                    </p>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
         </CardContent>
       </Card>
 

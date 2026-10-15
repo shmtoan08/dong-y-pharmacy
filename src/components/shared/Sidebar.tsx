@@ -56,6 +56,7 @@ const MENU: MenuItem[] = [
   { href: "/herbs", label: "Danh mục vị thuốc", icon: Leaf, permission: "herbs.view", section: "Kho dược liệu" },
   { href: "/herb-interactions", label: "Tương kỵ dược liệu", icon: AlertTriangle, permission: "herbs.view", section: "Kho dược liệu" },
   { href: "/formulas", label: "Bài thuốc mẫu", icon: BookOpen, permission: "formulas.view", section: "Kho dược liệu" },
+  { href: "/clinical-cases", label: "Bệnh án kinh nghiệm", icon: BookOpen, permission: "formulas.view", section: "Kho dược liệu" },
   { href: "/suppliers", label: "Nhà cung cấp", icon: Truck, permission: "inventory.view", section: "Kho dược liệu" },
   { href: "/stock-receipts", label: "Phiếu nhập kho", icon: Package, permission: "inventory.view", section: "Kho dược liệu" },
   { href: "/stock-lots", label: "Quản lý lô hàng", icon: ClipboardCheck, permission: "inventory.view", section: "Kho dược liệu" },
