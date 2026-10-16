@@ -51,8 +51,12 @@ export interface HerbAlias {
 /** Tìm kiếm vị thuốc (cho autocomplete khi kê đơn): khớp tên, mã, key, alias */
 export async function searchHerbs(query: string, limit = 10): Promise<Herb[]> {
   await requireRole("admin", "practitioner", "dispenser");
-  const q = `%${query.trim()}%`;
-  const key = `%${normalizeHerbKey(query.trim())}%`;
+  const trimmed = query.trim();
+  const q = `%${trimmed}%`;
+  const key = `%${normalizeHerbKey(trimmed)}%`;
+  // Ưu tiên vị bắt đầu bằng từ gõ (X -> Xạ hương) trước vị chỉ chứa từ gõ (Bạch hoa xà)
+  const qPrefix = `${trimmed}%`;
+  const keyPrefix = `${normalizeHerbKey(trimmed)}%`;
   const { rows } = await db.query<Herb>(
     `SELECT h.id, h.code, h.name_common, h.canonical_key, h.name_han_viet,
             h.name_science, h.used_part, h.property_tinh, h.property_vi,
@@ -65,9 +69,13 @@ export async function searchHerbs(query: string, limit = 10): Promise<Herb[]> {
        AND (h.name_common ILIKE $1 OR h.code ILIKE $1
             OR h.canonical_key LIKE $2 OR a.alias_key LIKE $2 OR a.alias_name ILIKE $1)
      GROUP BY h.id
-     ORDER BY h.name_common
+     ORDER BY
+       CASE WHEN h.name_common ILIKE $4 THEN 0
+            WHEN h.canonical_key LIKE $5 THEN 1
+            ELSE 2 END,
+       h.name_common
      LIMIT $3`,
-    [q, key, limit],
+    [q, key, limit, qPrefix, keyPrefix],
   );
   return rows;
 }
