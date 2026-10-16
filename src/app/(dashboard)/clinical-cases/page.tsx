@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Plus, Eye, Pencil } from "lucide-react";
 import { Tooltip, TooltipProvider } from "@/components/ui/tooltip";
 import { ClinicalCaseFilterToolbar } from "./ClinicalCaseFilterToolbar";
+import { DeleteClinicalCaseButton } from "./DeleteClinicalCaseButton";
 import { PageSizeSelect } from "../visits/PageSizeSelect";
 
 const PAGE_SIZES = [10, 25, 50];
@@ -131,7 +132,14 @@ export default async function ClinicalCasesPage({
           <div className="space-y-6">
             {[...grouped.values()].map((g) => (
               <div key={g.disease_id} className="space-y-3">
-                <h2 className="text-lg font-bold text-emerald-900">{g.disease_name}</h2>
+                <div className="flex items-center justify-between">
+                  <h2 className="text-lg font-bold text-emerald-900">{g.disease_name}</h2>
+                  <Link href={`/clinical-cases/new?disease=${g.disease_id}`}>
+                    <Button variant="outline" size="sm">
+                      <Plus className="mr-1 h-4 w-4" /> Thêm biện chứng
+                    </Button>
+                  </Link>
+                </div>
                 {g.cases.map((c) => (
                   <Card key={c.id}>
                     <CardContent className="flex items-start justify-between gap-3 py-4">
@@ -171,6 +179,10 @@ export default async function ClinicalCasesPage({
                             </Link>
                           </Button>
                         </Tooltip>
+                        <DeleteClinicalCaseButton
+                          caseId={c.id}
+                          patternName={c.pattern ?? "(Chưa có tên)"}
+                        />
                       </div>
                     </CardContent>
                   </Card>

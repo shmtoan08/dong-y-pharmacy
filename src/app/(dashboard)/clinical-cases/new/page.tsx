@@ -5,8 +5,14 @@ import { DiseaseWithCasesForm } from "../DiseaseWithCasesForm";
 import { BackButton } from "@/components/shared/BackButton";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
-export default async function NewClinicalCasePage() {
+export default async function NewClinicalCasePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ disease?: string }>;
+}) {
   await requireRole("admin", "practitioner");
+  const sp = await searchParams;
+  const preselectedDiseaseId = sp.disease ?? "";
   const { rows: diseases } = await db.query<{ id: string; name: string }>(
     `SELECT id, name FROM diseases WHERE is_active = true ORDER BY name`,
   );
@@ -28,6 +34,7 @@ export default async function NewClinicalCasePage() {
             diseases={diseases}
             templates={templates}
             submitLabel="Lưu bệnh án"
+            preselectedDiseaseId={preselectedDiseaseId}
           />
         </CardContent>
       </Card>

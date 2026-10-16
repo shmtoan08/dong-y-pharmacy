@@ -44,15 +44,18 @@ export function DiseaseWithCasesForm({
   diseases,
   templates,
   submitLabel,
+  preselectedDiseaseId,
 }: {
   action: (prev: ActionState, formData: FormData) => Promise<ActionState>;
   diseases: { id: string; name: string }[];
   templates: { id: string; name: string; code: string }[];
   submitLabel: string;
+  preselectedDiseaseId?: string;
 }) {
   const [state, formAction, pending] = useActionState(action, {});
-  const [useExisting, setUseExisting] = useState(false);
-  const [existingDiseaseId, setExistingDiseaseId] = useState("");
+  const hasPreselected = !!preselectedDiseaseId && diseases.some((d) => d.id === preselectedDiseaseId);
+  const [useExisting, setUseExisting] = useState(hasPreselected);
+  const [existingDiseaseId, setExistingDiseaseId] = useState(preselectedDiseaseId ?? "");
   const [patterns, setPatterns] = useState<PatternDraft[]>([{ ...EMPTY_PATTERN }]);
 
   const updatePattern = (idx: number, field: keyof PatternDraft, value: string) => {

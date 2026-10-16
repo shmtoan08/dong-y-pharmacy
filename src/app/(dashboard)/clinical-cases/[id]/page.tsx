@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { Button } from "@/components/ui/button";
+import { DeleteClinicalCaseButton } from "../DeleteClinicalCaseButton";
 import { Badge } from "@/components/ui/badge";
 import {
   Card,
@@ -75,9 +76,19 @@ export default async function ClinicalCaseDetailPage({
       <div className="flex items-center justify-between">
         <BackButton href="/clinical-cases" />
         {canEdit && (
-          <Button asChild className="bg-emerald-800 hover:bg-emerald-900">
-            <Link href={`/clinical-cases/${c.id}/edit`}>Sửa</Link>
-          </Button>
+          <div className="flex gap-2">
+            <Button variant="outline" asChild>
+              <Link href={`/clinical-cases/new?disease=${c.disease_id}`}>Thêm biện chứng</Link>
+            </Button>
+            <Button asChild className="bg-emerald-800 hover:bg-emerald-900">
+              <Link href={`/clinical-cases/${c.id}/edit`}>Sửa</Link>
+            </Button>
+            <DeleteClinicalCaseButton
+              caseId={c.id}
+              patternName={c.pattern ?? "(Chưa có tên)"}
+              variant="button"
+            />
+          </div>
         )}
       </div>
       <div className="flex items-start justify-between">

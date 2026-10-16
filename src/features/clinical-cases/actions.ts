@@ -184,6 +184,24 @@ export async function updateClinicalCase(
   redirect(`/clinical-cases/${id}`);
 }
 
+/** Xóa 1 biện chứng (hard delete). Bệnh danh không bị xóa. */
+export async function deleteClinicalCase(id: string): Promise<void> {
+  const user = await requirePractitioner();
+  const { rows } = await db.query(
+    `SELECT pattern, disease_id FROM clinical_cases WHERE id = $1`,
+    [id],
+  );
+  if (rows.length === 0) throw new Error("Không tìm thấy biện chứng");
+  await db.query(`DELETE FROM clinical_cases WHERE id = $1`, [id]);
+  await audit({
+    userId: user.id,
+    action: "DELETE_CLINICAL_CASE",
+    tableName: "clinical_cases",
+    rowId: id,
+    oldValue: { pattern: rows[0].pattern, disease_id: rows[0].disease_id },
+  });
+}
+
 export async function toggleClinicalCaseActive(id: string, isActive: boolean) {
   const user = await requirePractitioner();
   await db.query(`UPDATE clinical_cases SET is_active = $1, updated_at = NOW() WHERE id = $2`, [
