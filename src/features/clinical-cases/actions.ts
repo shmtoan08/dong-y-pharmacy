@@ -246,7 +246,7 @@ export async function deleteClinicalCase(id: string): Promise<void> {
 export async function getAllSymptoms(): Promise<SymptomOption[]> {
   await requirePractitioner();
   const { rows } = await db.query<SymptomOption>(
-    `SELECT id, name, category FROM symptoms WHERE is_active = true ORDER BY category, name`,
+    `SELECT id, name, category FROM symptoms WHERE is_active = true ORDER BY sort_order, name`,
   );
   return rows;
 }
