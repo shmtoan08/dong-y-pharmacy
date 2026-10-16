@@ -3,6 +3,7 @@ import { requireRole } from "@/lib/auth";
 import { updateHerb } from "@/features/herbs/actions";
 import { getHerb } from "@/features/herbs/queries";
 import { HerbForm } from "../../HerbForm";
+import { HerbImageUpload } from "../../HerbImageUpload";
 import { BackButton } from "@/components/shared/BackButton";
 
 export default async function EditHerbPage({
@@ -39,6 +40,7 @@ export default async function EditHerbPage({
         }}
         submitLabel="Lưu thay đổi"
       />
+      <HerbImageUpload herbId={id} initialImageUrl={herb.image_url ?? null} />
     </div>
   );
 }

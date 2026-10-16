@@ -6,6 +6,7 @@ import { requireRole } from "@/lib/auth";
 import { audit } from "@/lib/audit";
 import { normalizeHerbKey } from "@/lib/herb-key";
 import { herbSchema, aliasSchema } from "./schemas";
+import { herbImageKey, herbImageUrl, uploadToR2 } from "@/lib/r2";
 
 import type { ActionState } from "@/types/action-state";
 export type { ActionState };
@@ -290,4 +291,51 @@ export async function getMappingStats(): Promise<{
   total: number;
 }> {
   return getMappingStatsQuery();
+}
+
+const HERB_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"];
+const HERB_IMAGE_MAX_SIZE = 5 * 1024 * 1024; // 5MB
+
+/** Upload ảnh vị thuốc lên R2 + lưu image_url. Key: herbs/<canonical_key> (ghi đè khi upload lại). */
+export async function uploadHerbImage(
+  herbId: string,
+  formData: FormData,
+): Promise<ActionState<{ image_url: string }>> {
+  const user = await requireRole("admin", "practitioner");
+  const file = formData.get("image");
+  if (!(file instanceof File) || file.size === 0) {
+    return { ok: false, error: "Chưa chọn ảnh." };
+  }
+  if (!HERB_IMAGE_TYPES.includes(file.type)) {
+    return { ok: false, error: "Chỉ chấp nhận ảnh JPG, PNG hoặc WebP." };
+  }
+  if (file.size > HERB_IMAGE_MAX_SIZE) {
+    return { ok: false, error: "Ảnh tối đa 5MB." };
+  }
+  const herb = await getHerbQuery(herbId);
+  if (!herb) return { ok: false, error: "Không tìm thấy vị thuốc." };
+  try {
+    const buffer = new Uint8Array(await file.arrayBuffer());
+    const key = herbImageKey(herb.canonical_key);
+    await uploadToR2(key, buffer, file.type);
+    const imageUrl = herbImageUrl(herb.canonical_key);
+    await db.query(`UPDATE herbs SET image_url = $1, updated_at = NOW() WHERE id = $2`, [
+      imageUrl,
+      herbId,
+    ]);
+    await audit({
+      userId: user.id,
+      action: "UPDATE_HERB_IMAGE",
+      tableName: "herbs",
+      rowId: herbId,
+      newValue: { image_url: imageUrl },
+    });
+    const { revalidatePath } = await import("next/cache");
+    revalidatePath(`/herbs/${herbId}`);
+    revalidatePath("/herbs");
+    return { ok: true, data: { image_url: imageUrl } };
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : "Tải ảnh lên thất bại.";
+    return { ok: false, error: msg };
+  }
 }
