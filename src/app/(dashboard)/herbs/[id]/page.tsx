@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { AliasForm } from "./AliasForm";
 import { DosageLimitCard } from "./DosageLimitCard";
 import { getDosageLimit } from "@/features/prescriptions/actions";
-import { Pencil, Trash2 } from "lucide-react";
+import { Pencil, Trash2, AlertTriangle } from "lucide-react";
 import Image from "next/image";
 
 function Field({ label, value }: { label: string; value?: string | null }) {
@@ -51,9 +51,20 @@ export default async function HerbDetailPage({
   const canEdit = user.role === "admin" || user.role === "practitioner";
   const medicineType = herb.medicine_type;
 
+  const hasWarning = Boolean(herb.kieng_ky?.trim());
+
   return (
     <div className="space-y-4">
       <BackButton href="/herbs" />
+      {hasWarning && (
+        <div className="flex items-start gap-2 rounded-lg border border-red-300 bg-red-50 p-3 text-red-800">
+          <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0" />
+          <div>
+            <p className="font-semibold">Cảnh báo khi dùng</p>
+            <p className="text-sm">{herb.kieng_ky}</p>
+          </div>
+        </div>
+      )}
       <div className="flex items-start justify-between">
         <div className="flex items-start gap-4">
           {herb.image_url && (
@@ -67,7 +78,10 @@ export default async function HerbDetailPage({
           )}
           <div>
             <div className="flex items-center gap-2">
-              <h1 className="text-xl font-bold text-stone-900 md:text-2xl">{herb.name_common}</h1>
+              <h1 className={`text-xl font-bold md:text-2xl ${hasWarning ? "text-red-700" : "text-stone-900"}`}>{herb.name_common}</h1>
+              {hasWarning && (
+                <Badge variant="outline" className="border-red-300 text-red-700">Có cảnh báo</Badge>
+              )}
               <Badge variant="outline" className="font-mono">{herb.code}</Badge>
               {medicineType && MEDICINE_TYPE_LABEL[medicineType] && (
                 <Badge variant="outline" className={MEDICINE_TYPE_BADGE[medicineType]}>
