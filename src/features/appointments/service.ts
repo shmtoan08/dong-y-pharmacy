@@ -290,12 +290,8 @@ export async function issuePublicQueueNumber(
 
   const vn = getVietnamTime();
   const hour = vn.hour + vn.minute / 60;
-  const day = vn.day;
   const todayStr = vn.dateStr;
 
-  if (day === 0) {
-    throw new Error("Phòng khám nghỉ Chủ nhật");
-  }
   if (hour < 8 || hour >= 17) {
     throw new Error("Ngoài giờ nhận bệnh (8:00-17:00)");
   }

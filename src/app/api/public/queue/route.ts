@@ -42,7 +42,6 @@ export async function POST(req: Request) {
       "SĐT không hợp lệ",
       "Năm sinh không hợp lệ",
       "Giới tính không hợp lệ",
-      "Phòng khám nghỉ Chủ nhật",
       "Ngoài giờ nhận bệnh (8:00-17:00)",
     ];
     const msg = known.includes(errorMsg) ? errorMsg : "Lỗi hệ thống, vui lòng thử lại";
