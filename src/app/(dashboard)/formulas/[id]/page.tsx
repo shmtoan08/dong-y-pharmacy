@@ -74,7 +74,17 @@ export default async function FormulaDetailPage({
 
   return (
     <div className="mx-auto max-w-4xl space-y-6">
-      <BackButton href="/formulas" />
+      <div className="flex items-center justify-between">
+        <BackButton href="/formulas" />
+        {canEdit && (
+          <div className="flex gap-2">
+            <Button asChild className="bg-emerald-800 hover:bg-emerald-900">
+              <Link href={`/formulas/${t.id}/edit`}>Sửa (tạo v{Number(t.version) + 1})</Link>
+            </Button>
+            <DeleteFormulaButton formulaId={t.id} formulaName={t.name} variant="button" />
+          </div>
+        )}
+      </div>
       <div className="flex items-start justify-between">
         <div>
           <div className="flex items-center gap-3">
@@ -218,19 +228,7 @@ export default async function FormulaDetailPage({
         </Card>
       )}
 
-      <div className="flex gap-2">
-        <Button variant="outline" asChild>
-          <Link href="/formulas">← Danh sách</Link>
-        </Button>
-        {canEdit && (
-          <>
-            <Button asChild className="bg-emerald-800 hover:bg-emerald-900">
-              <Link href={`/formulas/${t.id}/edit`}>Sửa (tạo v{Number(t.version) + 1})</Link>
-            </Button>
-            <DeleteFormulaButton formulaId={t.id} formulaName={t.name} variant="button" />
-          </>
-        )}
-      </div>
+
     </div>
   );
 }

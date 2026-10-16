@@ -72,7 +72,14 @@ export default async function ClinicalCaseDetailPage({
 
   return (
     <div className="mx-auto max-w-4xl space-y-6">
-      <BackButton href="/clinical-cases" />
+      <div className="flex items-center justify-between">
+        <BackButton href="/clinical-cases" />
+        {canEdit && (
+          <Button asChild className="bg-emerald-800 hover:bg-emerald-900">
+            <Link href={`/clinical-cases/${c.id}/edit`}>Sửa</Link>
+          </Button>
+        )}
+      </div>
       <div className="flex items-start justify-between">
         <div>
           <p className="text-sm text-muted-foreground">{c.disease_name}</p>
@@ -196,16 +203,7 @@ export default async function ClinicalCaseDetailPage({
         </CardContent>
       </Card>
 
-      <div className="flex gap-2">
-        <Button variant="outline" asChild>
-          <Link href="/clinical-cases">← Danh sách</Link>
-        </Button>
-        {canEdit && (
-          <Button asChild className="bg-emerald-800 hover:bg-emerald-900">
-            <Link href={`/clinical-cases/${c.id}/edit`}>Sửa</Link>
-          </Button>
-        )}
-      </div>
+
     </div>
   );
 }
