@@ -25,7 +25,8 @@ import {
   AlertTriangle,
   Settings, ListOrdered,
   CalendarDays,
-  LayoutGrid} from "lucide-react";
+  LayoutGrid,
+  Search} from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { InfoModal } from "./InfoModal";
@@ -50,6 +51,7 @@ const MENU: MenuItem[] = [
   { href: "/schedules", label: "Lịch làm việc", icon: CalendarDays, permission: "schedules.view", section: "Khám chữa bệnh" },
   { href: "/schedules/master", label: "Lịch trực PK", icon: LayoutGrid, permission: "schedules.view", section: "Khám chữa bệnh" },
   { href: "/visits", label: "Khám bệnh & Bệnh án", icon: Stethoscope, permission: "visits.view", section: "Khám chữa bệnh" },
+  { href: "/diagnosis", label: "Chẩn đoán", icon: Search, permission: "visits.view", section: "Khám chữa bệnh" },
   { href: "/patients", label: "Hồ sơ bệnh nhân", icon: Users, permission: "patients.view", section: "Khám chữa bệnh" },
   { href: "/prescriptions", label: "Kê đơn & Bốc thuốc", icon: FileText, permission: "prescriptions.view", section: "Khám chữa bệnh" },
   // Kho dược liệu

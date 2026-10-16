@@ -14,12 +14,14 @@ import {
 } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Plus, Trash2 } from "lucide-react";
-import type { ActionState } from "@/features/clinical-cases/actions";
+import type { ActionState, SymptomOption } from "@/features/clinical-cases/actions";
+import { SymptomPicker } from "./SymptomPicker";
 
 interface PatternDraft {
   pattern: string;
   treatment_principle: string;
   symptoms: string;
+  symptom_ids: string[];
   template_id: string;
   usage_instruction: string;
   outcome: string;
@@ -31,6 +33,7 @@ const EMPTY_PATTERN: PatternDraft = {
   pattern: "",
   treatment_principle: "",
   symptoms: "",
+  symptom_ids: [],
   template_id: "",
   usage_instruction: "",
   outcome: "",
@@ -43,12 +46,14 @@ export function DiseaseWithCasesForm({
   action,
   diseases,
   templates,
+  symptoms,
   submitLabel,
   preselectedDiseaseId,
 }: {
   action: (prev: ActionState, formData: FormData) => Promise<ActionState>;
   diseases: { id: string; name: string }[];
   templates: { id: string; name: string; code: string }[];
+  symptoms: SymptomOption[];
   submitLabel: string;
   preselectedDiseaseId?: string;
 }) {
@@ -58,7 +63,7 @@ export function DiseaseWithCasesForm({
   const [existingDiseaseId, setExistingDiseaseId] = useState(preselectedDiseaseId ?? "");
   const [patterns, setPatterns] = useState<PatternDraft[]>([{ ...EMPTY_PATTERN }]);
 
-  const updatePattern = (idx: number, field: keyof PatternDraft, value: string) => {
+  const updatePattern = (idx: number, field: keyof PatternDraft, value: string | string[]) => {
     setPatterns((prev) => prev.map((p, i) => (i === idx ? { ...p, [field]: value } : p)));
   };
 
@@ -200,6 +205,15 @@ export function DiseaseWithCasesForm({
                   onChange={(e) => updatePattern(idx, "symptoms", e.target.value)}
                   placeholder="Mô tả triệu chứng lâm sàng..."
                   rows={2}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label>Tag triệu chứng (để chẩn đoán tìm thấy)</Label>
+                <SymptomPicker
+                  symptoms={symptoms}
+                  selected={p.symptom_ids}
+                  onChange={(ids) => updatePattern(idx, "symptom_ids", ids)}
                 />
               </div>
 

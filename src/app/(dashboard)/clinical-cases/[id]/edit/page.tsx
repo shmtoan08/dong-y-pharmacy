@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { requireRole } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { updateClinicalCase } from "@/features/clinical-cases/actions";
+import { updateClinicalCase, getAllSymptoms } from "@/features/clinical-cases/actions";
 import { ClinicalCaseForm } from "../../ClinicalCaseForm";
 import { BackButton } from "@/components/shared/BackButton";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -26,6 +26,11 @@ export default async function EditClinicalCasePage({
 
   const { rows: templates } = await db.query<{ id: string; name: string; code: string }>(
     `SELECT DISTINCT ON (code) id, name, code FROM prescription_templates WHERE is_active = true ORDER BY code, version DESC`,
+  );
+  const symptoms = await getAllSymptoms();
+  const { rows: linked } = await db.query<{ symptom_id: string }>(
+    `SELECT symptom_id FROM clinical_case_symptoms WHERE case_id = $1`,
+    [id],
   );
 
   const boundAction = updateClinicalCase.bind(null, id);
@@ -55,6 +60,8 @@ export default async function EditClinicalCasePage({
               source: c.source,
             }}
             templates={templates}
+            symptoms={symptoms}
+            initialSymptomIds={linked.map((l) => l.symptom_id)}
             submitLabel="Lưu thay đổi"
           />
         </CardContent>

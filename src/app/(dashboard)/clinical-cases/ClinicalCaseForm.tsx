@@ -12,7 +12,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import type { ActionState } from "@/features/clinical-cases/actions";
+import type { ActionState, SymptomOption } from "@/features/clinical-cases/actions";
+import { SymptomPicker } from "./SymptomPicker";
 
 export interface ClinicalCaseFormData {
   pattern: string | null;
@@ -30,18 +31,29 @@ export function ClinicalCaseForm({
   action,
   initial,
   templates,
+  symptoms,
+  initialSymptomIds,
   submitLabel,
 }: {
   action: (prev: ActionState, formData: FormData) => Promise<ActionState>;
   initial?: ClinicalCaseFormData;
   templates: { id: string; name: string; code: string }[];
+  symptoms: SymptomOption[];
+  initialSymptomIds?: string[];
   submitLabel: string;
 }) {
   const [state, formAction, pending] = useActionState(action, {});
   const [templateId, setTemplateId] = useState(initial?.template_id ?? "");
+  const [symptomIds, setSymptomIds] = useState<string[]>(initialSymptomIds ?? []);
 
   return (
-    <form action={formAction} className="space-y-6">
+    <form
+      action={(fd) => {
+        fd.set("symptom_ids", JSON.stringify(symptomIds));
+        formAction(fd);
+      }}
+      className="space-y-6"
+    >
       {state.error && (
         <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{state.error}</p>
       )}
@@ -77,6 +89,11 @@ export function ClinicalCaseForm({
           placeholder="Mô tả triệu chứng lâm sàng..."
           rows={3}
         />
+      </div>
+
+      <div className="space-y-2">
+        <Label>Tag triệu chứng (để chẩn đoán tìm thấy)</Label>
+        <SymptomPicker symptoms={symptoms} selected={symptomIds} onChange={setSymptomIds} />
       </div>
 
       <div className="space-y-2">
