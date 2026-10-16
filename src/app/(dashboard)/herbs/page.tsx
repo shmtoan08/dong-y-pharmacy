@@ -113,7 +113,7 @@ export default async function HerbsPage({
   let i = 1;
   if (q) {
     where.push(
-      `(h.name_common ILIKE $${i} OR h.code ILIKE $${i} OR h.canonical_key LIKE $${i + 1})`,
+      `(h.name_common ILIKE $${i} OR h.code ILIKE $${i} OR h.canonical_key LIKE $${i + 1} OR EXISTS (SELECT 1 FROM herb_aliases a WHERE a.herb_id = h.id AND (a.alias_name ILIKE $${i} OR a.alias_key LIKE $${i + 1})))`,
     );
     params.push(`%${q}%`, `%${queryKey}%`);
     i += 2;
