@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { SymptomPicker } from "../clinical-cases/SymptomPicker";
+import { PulseExam, type PulseSelection } from "./PulseExam";
 import {
   diagnoseCases,
   type DiagnosisResult,
@@ -14,14 +15,18 @@ import {
 
 export function DiagnosisForm({ symptoms }: { symptoms: SymptomOption[] }) {
   const [selected, setSelected] = useState<string[]>([]);
+  const [pulse, setPulse] = useState<PulseSelection>({});
   const [results, setResults] = useState<DiagnosisResult[] | null>(null);
   const [loading, setLoading] = useState(false);
 
+  const pulseSymptoms = symptoms.filter((s) => s.category === "Mạch");
+  const allSelected = [...new Set([...selected, ...Object.values(pulse)])];
+
   const run = async () => {
-    if (selected.length === 0) return;
+    if (allSelected.length === 0) return;
     setLoading(true);
     try {
-      setResults(await diagnoseCases(selected));
+      setResults(await diagnoseCases(allSelected));
     } finally {
       setLoading(false);
     }
@@ -35,9 +40,18 @@ export function DiagnosisForm({ symptoms }: { symptoms: SymptomOption[] }) {
         </CardHeader>
         <CardContent className="space-y-4">
           <SymptomPicker symptoms={symptoms} selected={selected} onChange={setSelected} />
-          <Button onClick={run} disabled={selected.length === 0 || loading} className="bg-emerald-800 hover:bg-emerald-900">
-            {loading ? "Đang tìm..." : `Tìm bệnh án (${selected.length} triệu chứng)`}
+          <Button onClick={run} disabled={allSelected.length === 0 || loading} className="bg-emerald-800 hover:bg-emerald-900">
+            {loading ? "Đang tìm..." : `Tìm bệnh án (${allSelected.length} triệu chứng)`}
           </Button>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Mạch tượng</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <PulseExam pulseSymptoms={pulseSymptoms} selected={pulse} onChange={setPulse} />
         </CardContent>
       </Card>
 
