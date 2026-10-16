@@ -4,7 +4,7 @@ import { db } from "@/lib/db";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Eye, Pencil } from "lucide-react";
+import { Plus, Pencil } from "lucide-react";
 import { HerbFilterToolbar } from "./HerbFilterToolbar";
 import { PageSizeSelect } from "../visits/PageSizeSelect";
 import { Tooltip, TooltipProvider } from "@/components/ui/tooltip";
@@ -269,9 +269,12 @@ export default async function HerbsPage({
                           {h.code}
                         </td>
                         <td className="px-4 py-3">
-                          <p className="font-semibold text-stone-900">
+                          <Link
+                            href={`/herbs/${h.id}`}
+                            className="font-semibold text-stone-900 hover:text-emerald-700 hover:underline"
+                          >
                             {h.name_common}
-                          </p>
+                          </Link>
                           {(h.name_science || h.name_han_viet) && (
                             <p className="text-xs text-stone-500">
                               {[h.name_science, h.name_han_viet]
@@ -318,17 +321,6 @@ export default async function HerbsPage({
                         </td>
                         <td className="whitespace-nowrap px-4 py-3">
                           <div className="flex justify-end gap-1">
-                            <Tooltip label="Xem chi tiết">
-                              <Link href={`/herbs/${h.id}`}>
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-8 w-8 text-stone-500 hover:text-emerald-700"
-                                >
-                                  <Eye className="h-4 w-4" />
-                                </Button>
-                              </Link>
-                            </Tooltip>
                             <Tooltip label="Chỉnh sửa">
                               <Link href={`/herbs/${h.id}/edit`}>
                                 <Button
@@ -361,9 +353,12 @@ export default async function HerbsPage({
                     <CardContent className="space-y-1.5 p-4">
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0">
-                          <p className="font-semibold text-stone-900">
+                          <Link
+                            href={`/herbs/${h.id}`}
+                            className="font-semibold text-stone-900 hover:text-emerald-700 hover:underline"
+                          >
                             {h.name_common}
-                          </p>
+                          </Link>
                           <p className="text-xs text-stone-500">{h.code}</p>
                         </div>
                         <Badge className={`${st.className} shrink-0`}>
@@ -376,11 +371,6 @@ export default async function HerbsPage({
                           ` · ${Number(h.price_per_unit).toLocaleString("vi-VN")} đ`}
                       </p>
                       <div className="flex gap-2 pt-1">
-                        <Link href={`/herbs/${h.id}`}>
-                          <Button variant="outline" size="sm">
-                            <Eye className="mr-1 h-3.5 w-3.5" /> Chi tiết
-                          </Button>
-                        </Link>
                         <Link href={`/herbs/${h.id}/edit`}>
                           <Button variant="outline" size="sm">
                             <Pencil className="mr-1 h-3.5 w-3.5" /> Sửa
