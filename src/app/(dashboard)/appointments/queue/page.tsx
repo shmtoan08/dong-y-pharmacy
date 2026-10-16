@@ -1,6 +1,4 @@
-export const dynamic = "force-dynamic";
-
-import { getTodayQueue } from "@/features/appointments/queue";
+import { getTodayQueue } from "@/features/appointments/queries";
 import { QueueBoard } from "./QueueBoard";
 
 export default async function QueuePage() {

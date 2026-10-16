@@ -6,9 +6,8 @@ import { requireRole } from "@/lib/auth";
 import { audit } from "@/lib/audit";
 import { redirect } from "next/navigation";
 
-export interface ActionState {
-  error?: string;
-}
+import type { ActionState } from "@/types/action-state";
+export type { ActionState };
 
 export interface ReceiptRow {
   id: string;

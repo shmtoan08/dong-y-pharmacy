@@ -14,7 +14,10 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Phòng thuốc Đông y",
+  title: {
+    template: "%s | Phòng thuốc Đông y",
+    default: "Phòng thuốc Đông y",
+  },
   description: "Hệ thống quản lý phòng thuốc Đông y",
 };
 

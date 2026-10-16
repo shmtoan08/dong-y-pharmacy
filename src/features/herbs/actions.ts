@@ -7,91 +7,36 @@ import { audit } from "@/lib/audit";
 import { normalizeHerbKey } from "@/lib/herb-key";
 import { herbSchema, aliasSchema } from "./schemas";
 
-export interface ActionState {
-  error?: string;
-  ok?: boolean;
-  code?: string;
-  name?: string;
-}
+import type { ActionState } from "@/types/action-state";
+export type { ActionState };
 
-export interface Herb {
-  id: string;
-  code: string;
-  name_common: string;
-  canonical_key: string;
-  name_han_viet: string | null;
-  name_science: string | null;
-  used_part: string | null;
-  property_tinh: string | null;
-  property_vi: string | null;
-  quy_kinh: string[] | null;
-  cong_nang: string | null;
-  kieng_ky: string | null;
-  vi_tri_hoc_tu: string | null;
-  medicine_type: string | null;
-  image_url: string | null;
-  preparation: string | null;
-  usage: string | null;
-  herb_group_id: string | null;
-  group_name: string | null;
-  base_unit: string;
-  price_per_unit: number | null;
-  stock_quantity: number;
-  min_stock_quantity: number;
-  is_valuable: boolean;
-  is_active: boolean;
-}
+import {
+  searchHerbs as searchHerbsQuery,
+  getHerb as getHerbQuery,
+  getHerbAliases as getHerbAliasesQuery,
+  getMappings as getMappingsQuery,
+  getMappingStats as getMappingStatsQuery,
+  type Herb,
+  type HerbAlias,
+  type HerbDetail,
+  type MappingRow,
+} from "./queries";
 
-export interface HerbAlias {
-  id: string;
-  alias_name: string;
-  alias_key: string;
-}
+export type { Herb, HerbAlias, HerbDetail, MappingRow };
 
 /** Tìm kiếm vị thuốc (cho autocomplete khi kê đơn): khớp tên, mã, key, alias */
 export async function searchHerbs(query: string, limit = 10): Promise<Herb[]> {
-  await requireRole("admin", "practitioner", "dispenser");
-  const trimmed = query.trim();
-  const q = `%${trimmed}%`;
-  const key = `%${normalizeHerbKey(trimmed)}%`;
-  // Ưu tiên vị bắt đầu bằng từ gõ (X -> Xạ hương) trước vị chỉ chứa từ gõ (Bạch hoa xà)
-  const qPrefix = `${trimmed}%`;
-  const keyPrefix = `${normalizeHerbKey(trimmed)}%`;
-  const { rows } = await db.query<Herb>(
-    `SELECT h.id, h.code, h.name_common, h.canonical_key, h.name_han_viet,
-            h.name_science, h.used_part, h.property_tinh, h.property_vi,
-            h.quy_kinh, h.cong_nang, h.base_unit, h.price_per_unit,
-            COALESCE((SELECT SUM(l.quantity_current) FROM stock_lots l WHERE l.herb_id = h.id), 0) AS stock_quantity,
-            h.min_stock_quantity, h.is_valuable, h.is_active
-     FROM herbs h
-     LEFT JOIN herb_aliases a ON a.herb_id = h.id
-     WHERE h.is_active = true
-       AND (h.name_common ILIKE $1 OR h.code ILIKE $1
-            OR h.canonical_key LIKE $2 OR a.alias_key LIKE $2 OR a.alias_name ILIKE $1)
-     GROUP BY h.id
-     ORDER BY
-       CASE WHEN h.name_common ILIKE $4 THEN 0
-            WHEN h.canonical_key LIKE $5 THEN 1
-            ELSE 2 END,
-       h.name_common
-     LIMIT $3`,
-    [q, key, limit, qPrefix, keyPrefix],
-  );
-  return rows;
+  return searchHerbsQuery(query, limit);
 }
 
-export async function getHerb(id: string): Promise<(Herb & { aliases: HerbAlias[] }) | null> {
-  await requireRole("admin", "practitioner", "dispenser");
-  const { rows } = await db.query<Herb>(
-    `SELECT h.*, g.name AS group_name FROM herbs h LEFT JOIN herb_groups g ON g.id = h.herb_group_id WHERE h.id = $1`,
-    [id],
-  );
-  if (rows.length === 0) return null;
-  const { rows: aliases } = await db.query<HerbAlias>(
-    `SELECT id, alias_name, alias_key FROM herb_aliases WHERE herb_id = $1 ORDER BY alias_name`,
-    [id],
-  );
-  return { ...rows[0], aliases };
+export async function getHerb(
+  id: string,
+): Promise<(Herb & { aliases: HerbAlias[] }) | null> {
+  return getHerbQuery(id);
+}
+
+export async function getHerbAliases(herbId: string): Promise<HerbAlias[]> {
+  return getHerbAliasesQuery(herbId);
 }
 
 export async function createHerb(_prev: ActionState, formData: FormData): Promise<ActionState> {
@@ -262,17 +207,6 @@ export async function removeAlias(herbId: string, aliasId: string): Promise<void
 
 // ---------- Migrate ----------
 
-export interface MappingRow {
-  id: string;
-  source_text: string;
-  normalized_key: string;
-  herb_id: string | null;
-  herb_name: string | null;
-  herb_code: string | null;
-  confidence: string | null;
-  status: string;
-  rejection_reason: string | null;
-}
 
 /**
  * Quét text vị thuốc từ bài mẫu + đơn thuốc, tạo mapping.
@@ -317,18 +251,7 @@ export async function scanHerbMappings(): Promise<{ scanned: number; newMappings
 }
 
 export async function getMappings(status?: string): Promise<MappingRow[]> {
-  await requireRole("admin", "practitioner");
-  const { rows } = await db.query<MappingRow>(
-    `SELECT m.id, m.source_text, m.normalized_key, m.herb_id,
-            h.name_common AS herb_name, h.code AS herb_code,
-            m.confidence, m.status, m.rejection_reason
-     FROM herb_migration_mappings m
-     LEFT JOIN herbs h ON h.id = m.herb_id
-     ${status ? "WHERE m.status = $1" : ""}
-     ORDER BY m.source_text`,
-    status ? [status] : [],
-  );
-  return rows;
+  return getMappingsQuery(status);
 }
 
 export async function confirmMapping(mappingId: string, herbId: string): Promise<ActionState> {
@@ -366,17 +289,5 @@ export async function getMappingStats(): Promise<{
   rejected: number;
   total: number;
 }> {
-  await requireRole("admin", "practitioner");
-  const { rows } = await db.query<{ status: string; count: string }>(
-    `SELECT status, COUNT(*) AS count FROM herb_migration_mappings GROUP BY status`,
-  );
-  const s = { pending: 0, confirmed: 0, rejected: 0, total: 0 };
-  for (const r of rows) {
-    const c = Number(r.count);
-    s.total += c;
-    if (r.status === "pending") s.pending = c;
-    else if (r.status === "confirmed") s.confirmed = c;
-    else if (r.status === "rejected") s.rejected = c;
-  }
-  return s;
+  return getMappingStatsQuery();
 }

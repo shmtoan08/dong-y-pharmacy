@@ -1,6 +1,11 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { requireRole } from "@/lib/auth";
-import { db } from "@/lib/db";
+import { getPatientsList } from "@/features/patients/queries";
+
+export const metadata: Metadata = {
+  title: "Hồ sơ bệnh nhân",
+};
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Plus, Eye, Stethoscope, Pencil } from "lucide-react";
@@ -29,18 +34,6 @@ function ageGender(dob: string | null, sex: string | null): string {
   return [ageStr, sexLabel].filter(Boolean).join(" / ") || "—";
 }
 
-type PatientRow = {
-  id: string;
-  patient_code: string;
-  full_name: string;
-  phone: string | null;
-  sex: string | null;
-  date_of_birth: string | null;
-  address: string | null;
-  visit_count: number;
-  last_visit: string | null;
-};
-
 export default async function PatientsPage({
   searchParams,
 }: {
@@ -61,55 +54,15 @@ export default async function PatientsPage({
   const visitFilter = ["month", "stale", "never"].includes(sp.visit ?? "")
     ? sp.visit!
     : "all";
-  const pageSize = PAGE_SIZES.includes(Number(sp.size)) ? Number(sp.size) : 10;
-  const page = Math.max(1, Number(sp.page) || 1);
-  const offset = (page - 1) * pageSize;
 
-  const where: string[] = [];
-  const params: unknown[] = [];
-  let i = 1;
-
-  if (q) {
-    where.push(`(p.full_name ILIKE $${i} OR p.phone ILIKE $${i} OR p.patient_code ILIKE $${i} OR p.address ILIKE $${i})`);
-    params.push(`%${q}%`);
-    i++;
-  }
-  if (sexFilter !== "all") {
-    where.push(`p.sex = $${i}`);
-    params.push(sexFilter);
-    i++;
-  }
-  if (visitFilter === "month") {
-    where.push(`vs.last_visit >= date_trunc('month', now())`);
-  } else if (visitFilter === "stale") {
-    where.push(`vs.last_visit IS NOT NULL AND vs.last_visit < now() - interval '6 months'`);
-  } else if (visitFilter === "never") {
-    where.push(`vs.last_visit IS NULL`);
-  }
-  const whereSql = where.length ? `WHERE ${where.join(" AND ")}` : "";
-
-  const countSql = `
-    SELECT COUNT(*)::int AS total FROM patients p
-    LEFT JOIN (SELECT patient_id, COUNT(*) AS cnt, MAX(visited_at) AS last_visit FROM visits GROUP BY patient_id) vs
-      ON vs.patient_id = p.id
-    ${whereSql}`;
-  const countRes = await db.query<{ total: number }>(countSql, params);
-  const total = countRes.rows[0]?.total ?? 0;
-  const totalPages = Math.max(1, Math.ceil(total / pageSize));
-  const safePage = Math.min(page, totalPages);
-  const safeOffset = (safePage - 1) * pageSize;
-
-  const dataSql = `
-    SELECT p.id, p.patient_code, p.full_name, p.phone, p.sex, p.date_of_birth, p.address,
-           COALESCE(vs.cnt, 0)::int AS visit_count, vs.last_visit
-    FROM patients p
-    LEFT JOIN (SELECT patient_id, COUNT(*) AS cnt, MAX(visited_at) AS last_visit FROM visits GROUP BY patient_id) vs
-      ON vs.patient_id = p.id
-    ${whereSql}
-    ORDER BY p.created_at DESC
-    LIMIT $${i} OFFSET $${i + 1}`;
-  const dataRes = await db.query<PatientRow>(dataSql, [...params, pageSize, safeOffset]);
-  const rows = dataRes.rows;
+  const { rows, total, totalPages, safePage, safeOffset, pageSize } =
+    await getPatientsList({
+      q: sp.q,
+      sex: sp.sex,
+      visit: sp.visit,
+      page: sp.page ? Number(sp.page) : undefined,
+      pageSize: sp.size ? Number(sp.size) : undefined,
+    });
 
   const buildHref = (overrides: Record<string, string>) => {
     const next: Record<string, string> = {

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { db } from "@/lib/db";
+import { getPublicDoctors } from "@/features/users/queries";
 
 export const dynamic = "force-dynamic";
 
@@ -16,24 +16,6 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const { rows } = await db.query(
-    `SELECT id, full_name AS name,
-            COALESCE(specialty, 'Đa khoa') AS specialty,
-            avatar_url, degree, experience_years
-     FROM users
-     WHERE role = 'practitioner' AND is_active = true
-     ORDER BY full_name`
-  );
-
-  return NextResponse.json({
-    doctors: rows.map((r: any) => ({
-      id: r.id,
-      name: r.name,
-      specialty: r.specialty,
-      avatarUrl: r.avatar_url || null,
-      degree: r.degree || null,
-      experienceYears: r.experience_years || null,
-      acceptingBookings: true,
-    })),
-  });
+  const doctors = await getPublicDoctors();
+  return NextResponse.json({ doctors });
 }

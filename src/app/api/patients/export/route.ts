@@ -1,5 +1,5 @@
 import { requireRole } from "@/lib/auth";
-import { db } from "@/lib/db";
+import { getPatientsExportData } from "@/features/patients/queries";
 
 const SEX_LABEL: Record<string, string> = {
   male: "Nam",
@@ -26,49 +26,14 @@ function csvCell(v: string | number | null): string {
 export async function GET(req: Request) {
   await requireRole("admin", "practitioner", "dispenser");
   const { searchParams } = new URL(req.url);
-  const q = (searchParams.get("q") ?? "").trim();
-  const sexFilter = ["male", "female", "other"].includes(searchParams.get("sex") ?? "")
-    ? searchParams.get("sex")!
-    : "all";
-  const visitFilter = ["month", "stale", "never"].includes(searchParams.get("visit") ?? "")
-    ? searchParams.get("visit")!
-    : "all";
+  const q = searchParams.get("q") ?? undefined;
+  const sex = searchParams.get("sex") ?? undefined;
+  const visit = searchParams.get("visit") ?? undefined;
 
-  const where: string[] = [];
-  const params: unknown[] = [];
-  let i = 1;
-  if (q) {
-    where.push(`(p.full_name ILIKE $${i} OR p.phone ILIKE $${i} OR p.patient_code ILIKE $${i} OR p.address ILIKE $${i})`);
-    params.push(`%${q}%`);
-    i++;
-  }
-  if (sexFilter !== "all") {
-    where.push(`p.sex = $${i}`);
-    params.push(sexFilter);
-    i++;
-  }
-  if (visitFilter === "month") {
-    where.push(`vs.last_visit >= date_trunc('month', now())`);
-  } else if (visitFilter === "stale") {
-    where.push(`vs.last_visit IS NOT NULL AND vs.last_visit < now() - interval '6 months'`);
-  } else if (visitFilter === "never") {
-    where.push(`vs.last_visit IS NULL`);
-  }
-  const whereSql = where.length ? `WHERE ${where.join(" AND ")}` : "";
-
-  const res = await db.query(
-    `SELECT p.patient_code, p.full_name, p.phone, p.sex, p.date_of_birth, p.address,
-            COALESCE(vs.cnt, 0)::int AS visit_count, vs.last_visit
-     FROM patients p
-     LEFT JOIN (SELECT patient_id, COUNT(*) AS cnt, MAX(visited_at) AS last_visit FROM visits GROUP BY patient_id) vs
-       ON vs.patient_id = p.id
-     ${whereSql}
-     ORDER BY p.created_at DESC`,
-    params,
-  );
+  const rows = await getPatientsExportData({ q, sex, visit });
 
   const header = ["Mã BN", "Họ tên", "SĐT", "Giới tính", "Ngày sinh", "Tuổi", "Địa chỉ", "Số lần khám", "Lần khám gần nhất"];
-  const lines = res.rows.map((r: Record<string, unknown>) => [
+  const lines = rows.map((r) => [
     csvCell(r.patient_code as string),
     csvCell(r.full_name as string),
     csvCell(r.phone as string | null),

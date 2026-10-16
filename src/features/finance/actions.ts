@@ -1,7 +1,7 @@
 "use server";
 
 import { db, withTransaction } from "@/lib/db";
-import { requireRole, getSessionUser } from "@/lib/auth";
+import { requireRole } from "@/lib/auth";
 import { audit } from "@/lib/audit";
 
 /* ==================== HÓA ĐƠN ==================== */

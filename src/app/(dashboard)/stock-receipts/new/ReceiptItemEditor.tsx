@@ -21,7 +21,7 @@ interface Item {
 export function ReceiptItemEditor() {
   const [items, setItems] = useState<Item[]>([]);
 
-  const addItem = async (herbId: string | null, herbName: string) => {
+  const addItem = async (herbId: string | null) => {
     if (!herbId) return;
     if (items.some((i) => i.herb_id === herbId)) return;
     const herb = await getHerb(herbId);
@@ -116,7 +116,7 @@ export function ReceiptItemEditor() {
 
       <HerbAutocomplete
         name="herb_search"
-        onHerbChange={addItem}
+        onHerbChange={(id) => addItem(id)}
         placeholder="Tìm vị thuốc để thêm vào phiếu..."
       />
       {items.length === 0 && (

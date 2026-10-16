@@ -1,7 +1,7 @@
 import { BackButton } from "@/components/shared/BackButton";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { getLotDetail, getLotMovements } from "@/features/inventory/actions";
+import { getLotDetail, getLotMovements } from "@/features/inventory/queries";
 import { LotBarcode } from "./LotBarcode";
 import { getSessionUser } from "@/lib/auth";
 import { LotActions } from "./LotActions";

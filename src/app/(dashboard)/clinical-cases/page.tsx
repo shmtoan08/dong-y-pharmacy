@@ -1,6 +1,9 @@
 import Link from "next/link";
 import { requireRole } from "@/lib/auth";
-import { db } from "@/lib/db";
+import {
+  getClinicalCasesList,
+  getDiseases,
+} from "@/features/clinical-cases/queries";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -21,71 +24,17 @@ export default async function ClinicalCasesPage({
   const sp = await searchParams;
   const q = (sp.q ?? "").trim();
   const diseaseFilter = sp.disease ?? "";
-  const pageSize = PAGE_SIZES.includes(Number(sp.size)) ? Number(sp.size) : 10;
-  const page = Math.max(1, Number(sp.page) || 1);
 
-  // Danh sách bệnh cho filter
-  const { rows: diseases } = await db.query<{ id: string; name: string }>(
-    `SELECT id, name FROM diseases WHERE is_active = true ORDER BY name`,
-  );
-
-  const where: string[] = [];
-  const params: unknown[] = [];
-  let i = 1;
-  if (q) {
-    where.push(`(d.name ILIKE $${i} OR c.pattern ILIKE $${i} OR c.treatment_principle ILIKE $${i} OR t.name ILIKE $${i})`);
-    params.push(`%${q}%`);
-    i++;
-  }
-  if (diseaseFilter) {
-    where.push(`c.disease_id = $${i}`);
-    params.push(diseaseFilter);
-    i++;
-  }
-  const whereSql = where.length ? `WHERE ${where.join(" AND ")}` : "";
-
-  const countRes = await db.query<{ total: number }>(
-    `SELECT COUNT(*)::int AS total FROM clinical_cases c
-     LEFT JOIN diseases d ON d.id = c.disease_id
-     LEFT JOIN prescription_templates t ON t.id = c.template_id
-     ${whereSql}`,
-    params,
-  );
-  const total = countRes.rows[0]?.total ?? 0;
-  const totalPages = Math.max(1, Math.ceil(total / pageSize));
-  const safePage = Math.min(page, totalPages);
-  const offset = (safePage - 1) * pageSize;
-
-  const { rows } = await db.query<{
-    id: string;
-    disease_id: string;
-    disease_name: string;
-    pattern: string | null;
-    treatment_principle: string | null;
-    template_id: string | null;
-    template_name: string | null;
-    is_active: boolean;
-  }>(
-    `SELECT c.id, c.disease_id, d.name AS disease_name, c.pattern, c.treatment_principle,
-            c.template_id, t.name AS template_name, c.is_active
-     FROM clinical_cases c
-     LEFT JOIN diseases d ON d.id = c.disease_id
-     LEFT JOIN prescription_templates t ON t.id = c.template_id
-     ${whereSql}
-     ORDER BY d.name, c.created_at DESC
-     LIMIT $${params.length + 1} OFFSET $${params.length + 2}`,
-    [...params, pageSize, offset],
-  );
-
-  // Nhóm theo bệnh để hiển thị
-  const grouped = new Map<string, { disease_id: string; disease_name: string; cases: typeof rows }>();
-  for (const r of rows) {
-    const key = r.disease_id;
-    if (!grouped.has(key)) {
-      grouped.set(key, { disease_id: r.disease_id, disease_name: r.disease_name, cases: [] });
-    }
-    grouped.get(key)!.cases.push(r);
-  }
+  const [diseases, { rows, total, totalPages, safePage, pageSize, grouped }] =
+    await Promise.all([
+      getDiseases(),
+      getClinicalCasesList({
+        q: sp.q,
+        disease: sp.disease,
+        page: sp.page ? Number(sp.page) : undefined,
+        pageSize: sp.size ? Number(sp.size) : undefined,
+      }),
+    ]);
 
   const buildHref = (overrides: Record<string, string>) => {
     const next: Record<string, string> = {

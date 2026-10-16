@@ -40,7 +40,7 @@ export async function getOnlineBookings(
     .toISOString().slice(0, 10);
 
   let where = `a.source = 'online'`;
-  const params: any[] = [];
+  const params: unknown[] = [];
 
   if (tab === "pending") {
     // Chi lich dat truoc cho xac nhan (khong tinh boc so vi tu dong confirmed)
@@ -95,7 +95,7 @@ export async function countPendingBookings(): Promise<number> {
   if (!canManage(user.role)) return 0;
 
   let where = `a.source = 'online' AND a.status = 'scheduled' AND a.queue_number IS NULL`;
-  const params: any[] = [];
+  const params: unknown[] = [];
   if (user.role === "practitioner") {
     params.push(user.id);
     where += ` AND a.practitioner_id = $1`;
@@ -203,9 +203,10 @@ export async function checkInOnlineBooking(id: string): Promise<{ visitId?: stri
 
     revalidatePath("/appointments/online");
     return { visitId };
-  } catch (e: any) {
-    if (e.message === "NOT_FOUND") return { error: "Không tìm thấy lịch hẹn" };
-    if (e.message === "INVALID_STATUS") return { error: "Lịch không ở trạng thái chờ tiếp đón" };
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : "";
+    if (msg === "NOT_FOUND") return { error: "Không tìm thấy lịch hẹn" };
+    if (msg === "INVALID_STATUS") return { error: "Lịch không ở trạng thái chờ tiếp đón" };
     return { error: "Lỗi hệ thống" };
   }
 }

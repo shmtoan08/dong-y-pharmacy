@@ -1,4 +1,4 @@
-import { getPrescriptionSnapshot, getPrescription } from "@/features/prescriptions/actions";
+import { getPrescriptionSnapshot, getPrescription } from "@/features/prescriptions/queries";
 import { notFound } from "next/navigation";
 import { BackButton } from "@/components/shared/BackButton";
 import { PrintButton } from "@/components/shared/PrintButton";

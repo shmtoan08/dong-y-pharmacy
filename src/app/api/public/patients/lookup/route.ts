@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { db } from "@/lib/db";
+import { lookupPatientByCode } from "@/features/patients/queries";
 
 export const dynamic = "force-dynamic";
 
@@ -23,16 +23,10 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: "Thiếu mã bệnh nhân" }, { status: 400 });
   }
 
-  const { rows } = await db.query(
-    `SELECT patient_code AS code, full_name AS name, phone,
-            EXTRACT(YEAR FROM date_of_birth)::int AS birth_year, sex AS gender
-     FROM patients WHERE patient_code = $1 LIMIT 1`,
-    [code]
-  );
-
-  if (rows.length === 0) {
+  const patient = await lookupPatientByCode(code);
+  if (!patient) {
     return NextResponse.json({ error: "Không tìm thấy mã bệnh nhân" }, { status: 404 });
   }
 
-  return NextResponse.json({ patient: rows[0] });
+  return NextResponse.json({ patient });
 }

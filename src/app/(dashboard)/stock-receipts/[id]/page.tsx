@@ -1,7 +1,7 @@
 import { BackButton } from "@/components/shared/BackButton";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { getReceipt } from "@/features/inventory/actions";
+import { getReceipt } from "@/features/inventory/queries";
 import { getSessionUser } from "@/lib/auth";
 import { ReceiptActions } from "./ReceiptActions";
 import { Printer } from "lucide-react";

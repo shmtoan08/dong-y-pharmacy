@@ -1,4 +1,4 @@
-import { getReceipt } from "@/features/inventory/actions";
+import { getReceipt } from "@/features/inventory/queries";
 import { notFound } from "next/navigation";
 import { BackButton } from "@/components/shared/BackButton";
 import { PrintButton } from "@/components/shared/PrintButton";

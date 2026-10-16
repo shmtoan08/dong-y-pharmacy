@@ -182,3 +182,27 @@ export async function getPrintSettings(): Promise<{
     bank_account_holder: m.bank_account_holder || "",
   };
 }
+
+/** Lấy thông tin công khai của phòng khám phục vụ trang booking / API public */
+export async function getPublicClinicInfo(): Promise<{
+  name: string;
+  phone: string;
+  address: string;
+  license: string;
+  workingHours: string;
+}> {
+  const { rows } = await db.query<{ key: string; value: string }>(
+    `SELECT key, value FROM system_settings
+     WHERE key IN ('clinic_name', 'clinic_phone', 'clinic_address', 'clinic_license_number', 'working_hours')`,
+  );
+  const info: Record<string, string> = {};
+  for (const r of rows) info[r.key] = r.value ?? "";
+
+  return {
+    name: info.clinic_name || "Đông Y Đường",
+    phone: info.clinic_phone || "0901234567",
+    address: info.clinic_address || "",
+    license: info.clinic_license_number || "",
+    workingHours: info.working_hours || "T2 - T7: 08:00 - 17:00 (Nghỉ Chủ nhật)",
+  };
+}

@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { getInvoice } from "@/features/finance/actions";
+import { getInvoice } from "@/features/finance/queries";
 import { getSessionUser } from "@/lib/auth";
 import { InvoiceDetailClient } from "./InvoiceDetailClient";
 

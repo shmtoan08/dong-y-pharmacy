@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireRole, getSessionUser } from "@/lib/auth";
-import { getHerb, toggleHerbActive, removeAlias } from "@/features/herbs/actions";
+import { toggleHerbActive, removeAlias } from "@/features/herbs/actions";
+import { getHerb } from "@/features/herbs/queries";
 import { BackButton } from "@/components/shared/BackButton";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";

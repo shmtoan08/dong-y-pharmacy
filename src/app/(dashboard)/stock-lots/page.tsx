@@ -2,10 +2,10 @@ export const dynamic = "force-dynamic";
 
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Eye } from "lucide-react";
-import { listLots } from "@/features/inventory/actions";
+import { listLots } from "@/features/inventory/queries";
 import { listSuppliers } from "@/features/suppliers/actions";
 import { LotFilterToolbar } from "./LotFilterToolbar";
 import { PageSizeSelect } from "../visits/PageSizeSelect";

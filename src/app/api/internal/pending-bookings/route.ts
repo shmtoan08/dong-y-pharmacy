@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { db } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
+import { countPendingBookings } from "@/features/appointments/queries";
 
 export const dynamic = "force-dynamic";
 
@@ -14,18 +14,8 @@ export async function GET() {
     const user = await requireUser();
     if (!canManage(user.role)) return NextResponse.json({ count: 0 });
 
-    let where = `a.source = 'online' AND a.status = 'scheduled' AND a.queue_number IS NULL`;
-    const params: unknown[] = [];
-    if (user.role === "practitioner") {
-      params.push(user.id);
-      where += ` AND a.practitioner_id = $1`;
-    }
-
-    const { rows } = await db.query<{ cnt: string }>(
-      `SELECT COUNT(*) AS cnt FROM appointments a WHERE ${where}`,
-      params
-    );
-    return NextResponse.json({ count: parseInt(rows[0].cnt, 10) });
+    const count = await countPendingBookings(user.role, user.id);
+    return NextResponse.json({ count });
   } catch {
     return NextResponse.json({ count: 0 });
   }

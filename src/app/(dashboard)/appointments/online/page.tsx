@@ -1,6 +1,4 @@
-export const dynamic = "force-dynamic";
-
-import { getOnlineBookings } from "@/features/appointments/online";
+import { getOnlineBookings } from "@/features/appointments/queries";
 import { OnlineBookingBoard } from "./OnlineBookingBoard";
 import { OnlineWeekRibbon } from "@/components/shared/WeekRibbonWrapper";
 

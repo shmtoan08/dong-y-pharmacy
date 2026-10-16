@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Plus, Eye, Printer } from "lucide-react";
-import { listReceipts } from "@/features/inventory/actions";
+import { listReceipts } from "@/features/inventory/queries";
 import { getSessionUser } from "@/lib/auth";
 import { ReceiptFilterToolbar } from "./ReceiptFilterToolbar";
 import { PageSizeSelect } from "../visits/PageSizeSelect";

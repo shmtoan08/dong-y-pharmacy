@@ -1,5 +1,8 @@
-import { getPatient } from "@/features/patients/actions";
-import { getPulsePatterns } from "@/features/visits/actions";
+import { getPatient } from "@/features/patients/queries";
+import {
+  getPulsePatterns,
+  getPatientVisitCount,
+} from "@/features/visits/queries";
 import { VisitForm } from "./VisitForm";
 import { notFound } from "next/navigation";
 import { BackButton } from "@/components/shared/BackButton";
@@ -12,18 +15,12 @@ export default async function NewVisitPage({
   const { patientId } = await searchParams;
   if (!patientId) notFound();
 
-  const [patient, patterns] = await Promise.all([
+  const [patient, patterns, visitCount] = await Promise.all([
     getPatient(patientId),
     getPulsePatterns(),
+    getPatientVisitCount(patientId),
   ]);
   if (!patient) notFound();
-
-  const { db } = await import("@/lib/db");
-  const vcRes = await db.query<{ cnt: string }>(
-    `SELECT COUNT(*) AS cnt FROM visits WHERE patient_id = $1`,
-    [patientId],
-  );
-  const visitCount = Number(vcRes.rows[0]?.cnt ?? 0);
 
   return (
     <div className="space-y-4">

@@ -41,9 +41,13 @@
 | File component | `PascalCase.tsx` | `PulseInputForm.tsx` |
 | File hook | `useXxx.ts` | `useBarcodeScanner.ts` |
 
-### 2.4. Server/Client boundary
+### 2.4. Server/Client boundary & Phân tầng Data Access
 - Mặc định là **Server Component**. Chỉ dùng `'use client'` cho: form interactivity, realtime subscription, barcode scanner, print, toast.
-- **CẤM business logic trong component**: không tính tiền/thuốc trong component — mọi tính toán nằm ở Server Action / Domain service / SQL function. Component chỉ render.
+- **CẤM business logic và câu lệnh SQL trong component**: không tính tiền/thuốc, **CẤM `import { db } from "@/lib/db"` trong `page.tsx`**.
+- Mọi logic phải tuân thủ nghiêm ngặt theo **[06-QUI-TAC-SERVER-ACTIONS-VA-DATA-ACCESS.md](./06-QUI-TAC-SERVER-ACTIONS-VA-DATA-ACCESS.md)**:
+  - `queries.ts` (Read-only, không có `"use server"`) cho Server Components đọc dữ liệu.
+  - `actions.ts` (Chỉ mutation, có `"use server"`) cho Form submit / buttons.
+  - `service.ts` cho các nghiệp vụ tính toán phức tạp (FEFO, audit, transaction).
 
 ### 2.5. Supabase — quy tắc 3 clients
 | Client | Dùng khi |

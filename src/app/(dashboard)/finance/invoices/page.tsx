@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Eye, Printer } from "lucide-react";
-import { listInvoices, getInvoiceKpi } from "@/features/finance/actions";
+import { listInvoices, getInvoiceKpi } from "@/features/finance/queries";
 import { InvoiceFilterToolbar } from "./InvoiceFilterToolbar";
 import { ExportExcelButton } from "./ExportExcelButton";
 import { QuickCollectButton } from "./QuickCollectButton";

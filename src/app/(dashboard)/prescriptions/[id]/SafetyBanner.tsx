@@ -39,14 +39,16 @@ export function SafetyBanner({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const load = async () => {
-    const s = await checkPrescriptionSafety(prescriptionId);
-    setSafety(s);
-  };
-
   useEffect(() => {
-    load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    let ignore = false;
+    checkPrescriptionSafety(prescriptionId).then((s) => {
+      if (!ignore) {
+        setSafety(s);
+      }
+    });
+    return () => {
+      ignore = true;
+    };
   }, [prescriptionId]);
 
   const doOverride = async () => {
@@ -59,7 +61,8 @@ export function SafetyBanner({
     } else {
       setOverrideTarget(null);
       setReason("");
-      await load();
+      const updated = await checkPrescriptionSafety(prescriptionId);
+      setSafety(updated);
       onChanged?.();
     }
   };

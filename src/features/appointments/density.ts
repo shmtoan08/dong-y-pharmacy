@@ -25,7 +25,7 @@ export async function getAppointmentDensity(
 
   let where = `a.scheduled_at >= $1::date AND a.scheduled_at < $2::date
                AND a.status NOT IN ('cancelled', 'rejected')`;
-  const params: any[] = [startDate, endDate.toISOString().slice(0, 10)];
+  const params: unknown[] = [startDate, endDate.toISOString().slice(0, 10)];
 
   if (onlineOnly) {
     where += ` AND a.source = 'online'`;

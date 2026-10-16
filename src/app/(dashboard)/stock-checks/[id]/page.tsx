@@ -1,4 +1,4 @@
-import { getStockCheck } from "@/features/inventory/actions";
+import { getStockCheck } from "@/features/inventory/queries";
 import { getSessionUser } from "@/lib/auth";
 import { CheckDetailClient } from "./CheckDetailClient";
 import { notFound } from "next/navigation";

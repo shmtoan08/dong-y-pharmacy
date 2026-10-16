@@ -1,7 +1,7 @@
 "use server";
 
 import { db } from "@/lib/db";
-import { requireRole, getSessionUser } from "@/lib/auth";
+import { requireRole } from "@/lib/auth";
 import { audit } from "@/lib/audit";
 
 export interface LedgerEntry {

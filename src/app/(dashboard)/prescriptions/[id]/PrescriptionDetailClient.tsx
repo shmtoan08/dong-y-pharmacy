@@ -63,6 +63,7 @@ export function PrescriptionDetailClient({
     <div className="space-y-4">
       {prescription.status === "draft" && (
         <SafetyBanner
+          key={safetyKey}
           prescriptionId={prescription.id}
           canOverride={canEdit}
           onChanged={() => setSafetyKey((k) => k + 1)}

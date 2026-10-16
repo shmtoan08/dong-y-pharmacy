@@ -3,7 +3,6 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { InfoModal } from "@/components/shared/InfoModal";
 import { UserPlus } from "lucide-react";
 import {

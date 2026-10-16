@@ -1,16 +1,8 @@
 import { BackButton } from "@/components/shared/BackButton";
 import { notFound } from "next/navigation";
 import { requireRole } from "@/lib/auth";
-import { db } from "@/lib/db";
+import { getStaffById } from "@/features/users/queries";
 import { EditStaffForm } from "./EditStaffForm";
-
-interface StaffRow {
-  id: string;
-  email: string;
-  full_name: string;
-  phone: string | null;
-  role: string;
-}
 
 export default async function EditStaffPage({
   params,
@@ -20,11 +12,7 @@ export default async function EditStaffPage({
   await requireRole("admin");
   const { id } = await params;
 
-  const { rows } = await db.query(
-    "SELECT id, email, full_name, phone, role FROM users WHERE id = $1",
-    [id],
-  );
-  const user = rows[0] as unknown as StaffRow | undefined;
+  const user = await getStaffById(id);
   if (!user) notFound();
 
   return (

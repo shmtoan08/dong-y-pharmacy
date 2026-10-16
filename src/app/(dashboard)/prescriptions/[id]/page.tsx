@@ -1,4 +1,4 @@
-import { getPrescription } from "@/features/prescriptions/actions";
+import { getPrescription } from "@/features/prescriptions/queries";
 import { getSessionUser } from "@/lib/auth";
 import { PrescriptionDetailClient } from "./PrescriptionDetailClient";
 import { notFound } from "next/navigation";

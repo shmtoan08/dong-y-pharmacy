@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { getManualTransaction } from "@/features/finance/ledger";
+import { getManualTransaction } from "@/features/finance/queries";
 import { PrintButton } from "@/components/shared/PrintButton";
 
 function numberToVietnamese(n: number): string {

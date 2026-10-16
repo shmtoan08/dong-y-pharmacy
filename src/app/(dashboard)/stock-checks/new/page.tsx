@@ -1,5 +1,5 @@
 import { NewCheckForm } from "./NewCheckForm";
-import { listLots } from "@/features/inventory/actions";
+import { listLots } from "@/features/inventory/queries";
 
 export default async function NewStockCheckPage() {
   const lots = await listLots({ stockStatus: "in_stock" });

@@ -2,7 +2,7 @@ import { BackButton } from "@/components/shared/BackButton";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireUser } from "@/lib/auth";
-import { db } from "@/lib/db";
+import { getClinicalCaseDetail } from "@/features/clinical-cases/queries";
 import { Button } from "@/components/ui/button";
 import { DeleteClinicalCaseButton } from "../DeleteClinicalCaseButton";
 import { Badge } from "@/components/ui/badge";
@@ -30,46 +30,10 @@ export default async function ClinicalCaseDetailPage({
   const { id } = await params;
   const canEdit = user.role === "admin" || user.role === "practitioner";
 
-  const { rows } = await db.query(
-    `SELECT c.*, d.name AS disease_name, d.description AS disease_description,
-            t.name AS template_name, t.code AS template_code,
-            t.version AS template_version, u.full_name AS created_by_name
-     FROM clinical_cases c
-     LEFT JOIN diseases d ON d.id = c.disease_id
-     LEFT JOIN prescription_templates t ON t.id = c.template_id
-     LEFT JOIN users u ON u.id = c.created_by
-     WHERE c.id = $1`,
-    [id],
-  );
-  if (rows.length === 0) notFound();
-  const c = rows[0];
+  const c = await getClinicalCaseDetail(id);
+  if (!c) notFound();
 
-  // Các biện chứng khác của cùng bệnh
-  const { rows: siblings } = await db.query<{
-    id: string;
-    pattern: string | null;
-  }>(
-    `SELECT id, pattern FROM clinical_cases
-     WHERE disease_id = $1 AND id != $2 AND is_active = true
-     ORDER BY created_at`,
-    [c.disease_id, id],
-  );
-
-  // Vị thuốc của bài thuốc (nếu có)
-  let items: { herb_name: string; dosage_text: string; note: string | null }[] = [];
-  if (c.template_id) {
-    const { rows: itemRows } = await db.query<{
-      herb_name: string;
-      dosage_text: string;
-      note: string | null;
-    }>(
-      `SELECT herb_name, dosage_text, note
-       FROM prescription_template_items
-       WHERE template_id = $1 ORDER BY sort_order`,
-      [c.template_id],
-    );
-    items = itemRows;
-  }
+  const { siblings, items } = c;
 
   return (
     <div className="mx-auto max-w-4xl space-y-6">

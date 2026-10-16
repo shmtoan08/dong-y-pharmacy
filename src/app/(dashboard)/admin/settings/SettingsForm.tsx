@@ -101,6 +101,7 @@ export function SettingsForm({ initial }: { initial: ClinicSettings }) {
                 <div className="flex items-center gap-3">
                   {form.clinic_logo_url ? (
                     <div className="relative">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img src={form.clinic_logo_url} alt="Logo" className="h-16 w-16 rounded-lg border object-contain" />
                       <button type="button"
                         onClick={() => { setForm((f) => ({ ...f, clinic_logo_url: "" })); setDirty(true); }}
@@ -271,7 +272,7 @@ export function SettingsForm({ initial }: { initial: ClinicSettings }) {
                 <Input type="number" min={1} max={500}
                   value={form.max_queue_per_day}
                   onChange={set("max_queue_per_day")} />
-                <p className="text-xs text-stone-500">Số bệnh nhân bốc số tối đa trong 1 ngày. Vượt quá sẽ báo "hết số".</p>
+                <p className="text-xs text-stone-500">Số bệnh nhân bốc số tối đa trong 1 ngày. Vượt quá sẽ báo &quot;hết số&quot;.</p>
               </div>
             </CardContent>
           </Card>

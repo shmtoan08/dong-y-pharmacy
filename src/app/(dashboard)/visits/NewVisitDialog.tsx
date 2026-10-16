@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { Plus, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -72,9 +73,9 @@ export function NewVisitDialog() {
           {!isPending && query.trim().length >= 2 && results.length === 0 && (
             <p className="text-sm text-stone-500">
               Không tìm thấy.{" "}
-              <a href="/patients/new" className="font-medium text-emerald-700 hover:underline">
+              <Link href="/patients/new" className="font-medium text-emerald-700 hover:underline">
                 Thêm bệnh nhân mới
-              </a>
+              </Link>
             </p>
           )}
           <ul className="max-h-64 divide-y divide-stone-100 overflow-auto rounded-md border border-stone-200">

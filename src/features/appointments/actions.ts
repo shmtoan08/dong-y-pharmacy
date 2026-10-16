@@ -1,7 +1,7 @@
 "use server";
 
 import { db, withTransaction } from "@/lib/db";
-import { requireRole, getSessionUser } from "@/lib/auth";
+import { requireRole } from "@/lib/auth";
 import { audit } from "@/lib/audit";
 import { nextPatientCode } from "@/features/patients/actions";
 
@@ -267,7 +267,7 @@ export async function quickCreatePatient(
   fullName: string,
   phone?: string,
 ): Promise<{ id?: string; error?: string }> {
-  const user = await requireRole("admin", "practitioner");
+  await requireRole("admin", "practitioner");
   if (!fullName.trim()) return { error: "Chưa nhập họ tên." };
   const code = await nextPatientCode();
   const { rows } = await db.query<{ id: string }>(

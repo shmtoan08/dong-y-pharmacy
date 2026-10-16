@@ -2,7 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { z } from "zod";
-import { db } from "@/lib/db";
+import { getUserForAuth } from "@/features/users/queries";
 import { verifyPassword } from "@/lib/password";
 import { createSession } from "@/lib/auth";
 import { audit } from "@/lib/audit";
@@ -47,12 +47,7 @@ export async function login(
     };
   }
 
-  const { rows } = await db.query(
-    `SELECT id, email, full_name, role, password_hash, is_active
-     FROM users WHERE email = $1`,
-    [normalizedEmail],
-  );
-  const user = rows[0];
+  const user = await getUserForAuth(normalizedEmail);
 
   const valid =
     user?.is_active &&

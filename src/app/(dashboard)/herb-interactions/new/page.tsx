@@ -1,5 +1,5 @@
 import { InteractionForm } from "../InteractionForm";
-import { searchHerbs } from "@/features/herbs/actions";
+import { searchHerbs } from "@/features/herbs/queries";
 import { BackButton } from "@/components/shared/BackButton";
 
 export default async function NewInteractionPage() {

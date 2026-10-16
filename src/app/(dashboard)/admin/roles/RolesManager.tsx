@@ -191,7 +191,6 @@ export function RolesManager({
               Object.entries(groups).map(([group, perms]) => {
                 const keys = perms.map((p) => p.key);
                 const allChecked = keys.every((k) => roleGrants[k]);
-                const someChecked = keys.some((k) => roleGrants[k]);
                 return (
                   <div key={group} className="rounded-lg border border-stone-200 p-3">
                     <div className="mb-2 flex items-center justify-between">

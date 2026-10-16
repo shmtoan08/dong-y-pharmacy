@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { requireRole } from "@/lib/auth";
-import { db } from "@/lib/db";
-import { updateClinicalCase, getAllSymptoms } from "@/features/clinical-cases/actions";
+import { updateClinicalCase } from "@/features/clinical-cases/actions";
+import { getClinicalCaseForEdit } from "@/features/clinical-cases/queries";
 import { ClinicalCaseForm } from "../../ClinicalCaseForm";
 import { BackButton } from "@/components/shared/BackButton";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -14,24 +14,9 @@ export default async function EditClinicalCasePage({
   await requireRole("admin", "practitioner");
   const { id } = await params;
 
-  const { rows } = await db.query(
-    `SELECT c.*, d.name AS disease_name
-     FROM clinical_cases c
-     LEFT JOIN diseases d ON d.id = c.disease_id
-     WHERE c.id = $1`,
-    [id],
-  );
-  if (rows.length === 0) notFound();
-  const c = rows[0];
-
-  const { rows: templates } = await db.query<{ id: string; name: string; code: string }>(
-    `SELECT DISTINCT ON (code) id, name, code FROM prescription_templates WHERE is_active = true ORDER BY code, version DESC`,
-  );
-  const symptoms = await getAllSymptoms();
-  const { rows: linked } = await db.query<{ symptom_id: string }>(
-    `SELECT symptom_id FROM clinical_case_symptoms WHERE case_id = $1`,
-    [id],
-  );
+  const data = await getClinicalCaseForEdit(id);
+  if (!data) notFound();
+  const { caseData: c, templates, symptoms, linkedSymptomIds } = data;
 
   const boundAction = updateClinicalCase.bind(null, id);
 
@@ -61,7 +46,7 @@ export default async function EditClinicalCasePage({
             }}
             templates={templates}
             symptoms={symptoms}
-            initialSymptomIds={linked.map((l) => l.symptom_id)}
+            initialSymptomIds={linkedSymptomIds}
             submitLabel="Lưu thay đổi"
           />
         </CardContent>

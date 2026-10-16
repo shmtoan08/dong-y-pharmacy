@@ -1,7 +1,7 @@
 import { BackButton } from "@/components/shared/BackButton";
 import { VisitTimelineItem } from "./VisitTimelineItem";
 import { SimpleTabs } from "@/components/shared/SimpleTabs";
-import { getPatient } from "@/features/patients/actions";
+import { getPatient } from "@/features/patients/queries";
 import { getVisitsByPatient } from "@/features/visits/actions";
 import { getPrescriptionsByVisit } from "@/features/prescriptions/actions";
 import { getSessionUser } from "@/lib/auth";
@@ -9,7 +9,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Stethoscope, FileText, Pencil, Printer } from "lucide-react";
+import { Plus, FileText, Pencil, Printer } from "lucide-react";
 import { STATUS_LABEL, STATUS_STYLE } from "@/features/prescriptions/constants";
 import { notFound } from "next/navigation";
 

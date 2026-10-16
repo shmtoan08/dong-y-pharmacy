@@ -1,5 +1,6 @@
 import { BackButton } from "@/components/shared/BackButton";
-import { getPatient, updatePatient } from "@/features/patients/actions";
+import { updatePatient } from "@/features/patients/actions";
+import { getPatient } from "@/features/patients/queries";
 import { PatientForm } from "../../PatientForm";
 import { notFound } from "next/navigation";
 

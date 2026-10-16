@@ -1,10 +1,15 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { requireUser } from "@/lib/auth";
-import { db } from "@/lib/db";
+import { getFormulasList } from "@/features/formulas/queries";
+
+export const metadata: Metadata = {
+  title: "Bài thuốc mẫu",
+};
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Pencil, Trash2 } from "lucide-react";
+import { Plus, Pencil } from "lucide-react";
 import { CATEGORY_LABEL } from "@/features/formulas/schemas";
 import { FormulaFilterToolbar } from "./FormulaFilterToolbar";
 import { DuplicateFormulaButton } from "./DuplicateFormulaButton";
@@ -14,18 +19,6 @@ import { Tooltip, TooltipProvider } from "@/components/ui/tooltip";
 import { HoverCard } from "@/components/ui/hover-card";
 
 const PAGE_SIZES = [10, 25, 50];
-
-type FormulaRow = {
-  id: string;
-  code: string;
-  name: string;
-  version: number;
-  category: string;
-  syndrome: string | null;
-  is_active: boolean;
-  item_count: number;
-  items_preview: string | null;
-};
 
 export default async function FormulasListPage({
   searchParams,
@@ -45,61 +38,17 @@ export default async function FormulasListPage({
   const statusFilter = ["active", "inactive"].includes(sp.status ?? "")
     ? sp.status!
     : "all";
-  const pageSize = PAGE_SIZES.includes(Number(sp.size)) ? Number(sp.size) : 10;
-  const page = Math.max(1, Number(sp.page) || 1);
 
   const canEdit = user.role === "admin" || user.role === "practitioner";
 
-  const where: string[] = [];
-  const params: unknown[] = [];
-  let i = 1;
-  if (q) {
-    where.push(
-      `(t.name ILIKE $${i} OR t.syndrome ILIKE $${i} OR t.indications ILIKE $${i})`,
-    );
-    params.push(`%${q}%`);
-    i++;
-  }
-  if (categoryFilter !== "all") {
-    where.push(`t.category = $${i}`);
-    params.push(categoryFilter);
-    i++;
-  }
-  if (statusFilter === "active") {
-    where.push(`t.is_active = true`);
-  } else if (statusFilter === "inactive") {
-    where.push(`t.is_active = false`);
-  }
-  const whereSql = where.length ? `WHERE ${where.join(" AND ")}` : "";
-
-  // Chỉ version mới nhất của mỗi code
-  const baseFrom = `
-    FROM prescription_templates t
-    ${whereSql}
-  `;
-
-  const countRes = await db.query<{ total: number }>(
-    `SELECT COUNT(*)::int AS total FROM (
-       SELECT DISTINCT ON (t.code) t.code ${baseFrom} ORDER BY t.code, t.version DESC
-     ) s`,
-    params,
-  );
-  const total = countRes.rows[0]?.total ?? 0;
-  const totalPages = Math.max(1, Math.ceil(total / pageSize));
-  const safePage = Math.min(page, totalPages);
-  const offset = (safePage - 1) * pageSize;
-
-  const { rows } = await db.query<FormulaRow>(
-    `SELECT DISTINCT ON (t.code) t.id, t.code, t.name, t.version, t.category,
-            t.syndrome, t.is_active,
-            (SELECT COUNT(*)::int FROM prescription_template_items i WHERE i.template_id = t.id) AS item_count,
-            (SELECT string_agg(i2.herb_name || ' ' || COALESCE(i2.dosage_text, ''), ', ' ORDER BY i2.sort_order)
-             FROM prescription_template_items i2 WHERE i2.template_id = t.id) AS items_preview
-     ${baseFrom}
-     ORDER BY t.code, t.version DESC
-     LIMIT $${i} OFFSET $${i + 1}`,
-    [...params, pageSize, offset],
-  );
+  const { rows, total, totalPages, safePage, offset, pageSize } =
+    await getFormulasList({
+      q: sp.q,
+      category: sp.category,
+      status: sp.status,
+      page: sp.page ? Number(sp.page) : undefined,
+      pageSize: sp.size ? Number(sp.size) : undefined,
+    });
 
   const buildHref = (overrides: Record<string, string>) => {
     const next: Record<string, string> = {

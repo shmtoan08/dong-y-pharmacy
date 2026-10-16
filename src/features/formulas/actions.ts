@@ -9,9 +9,8 @@ import { normalizeHerbKey } from "@/lib/herb-key";
 import { createFormulaSchema } from "./schemas";
 import type { HerbItemInput } from "./schemas";
 
-export interface ActionState {
-  error?: string;
-}
+import type { ActionState } from "@/types/action-state";
+export type { ActionState };
 
 async function requirePractitioner() {
   // Admin và thầy thuốc được quản lý bài thuốc; nhân viên bốc thuốc chỉ xem

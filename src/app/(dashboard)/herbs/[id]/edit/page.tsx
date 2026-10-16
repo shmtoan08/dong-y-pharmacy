@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { requireRole } from "@/lib/auth";
-import { getHerb, updateHerb } from "@/features/herbs/actions";
+import { updateHerb } from "@/features/herbs/actions";
+import { getHerb } from "@/features/herbs/queries";
 import { HerbForm } from "../../HerbForm";
 import { BackButton } from "@/components/shared/BackButton";
 

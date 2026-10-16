@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { requireRole } from "@/lib/auth";
-import { db } from "@/lib/db";
+import { listStaff } from "@/features/users/queries";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -38,15 +38,6 @@ function avatarColor(name: string): string {
   return colors[h % colors.length];
 }
 
-type StaffRow = {
-  id: string;
-  email: string;
-  full_name: string;
-  phone: string | null;
-  role: string;
-  is_active: boolean;
-};
-
 export default async function StaffListPage({
   searchParams,
 }: {
@@ -67,46 +58,14 @@ export default async function StaffListPage({
   const statusFilter = ["active", "locked"].includes(sp.status ?? "")
     ? sp.status!
     : "all";
-  const pageSize = PAGE_SIZES.includes(Number(sp.size)) ? Number(sp.size) : 10;
-  const page = Math.max(1, Number(sp.page) || 1);
 
-  const where: string[] = [];
-  const params: unknown[] = [];
-  let i = 1;
-  if (q) {
-    where.push(`(u.full_name ILIKE $${i} OR u.email ILIKE $${i} OR u.phone ILIKE $${i})`);
-    params.push(`%${q}%`);
-    i++;
-  }
-  if (roleFilter !== "all") {
-    where.push(`u.role = $${i}`);
-    params.push(roleFilter);
-    i++;
-  }
-  if (statusFilter === "active") {
-    where.push(`u.is_active = true`);
-  } else if (statusFilter === "locked") {
-    where.push(`u.is_active = false`);
-  }
-  const whereSql = where.length ? `WHERE ${where.join(" AND ")}` : "";
-
-  const countRes = await db.query<{ total: number }>(
-    `SELECT COUNT(*)::int AS total FROM users u ${whereSql}`,
-    params,
-  );
-  const total = countRes.rows[0]?.total ?? 0;
-  const totalPages = Math.max(1, Math.ceil(total / pageSize));
-  const safePage = Math.min(page, totalPages);
-  const offset = (safePage - 1) * pageSize;
-
-  const { rows } = await db.query<StaffRow>(
-    `SELECT u.id, u.email, u.full_name, u.phone, u.role, u.is_active
-     FROM users u
-     ${whereSql}
-     ORDER BY u.created_at ASC
-     LIMIT $${i} OFFSET $${i + 1}`,
-    [...params, pageSize, offset],
-  );
+  const { rows, total, totalPages, safePage, offset, pageSize } = await listStaff({
+    q,
+    role: roleFilter,
+    status: statusFilter,
+    page: sp.page ? Number(sp.page) : undefined,
+    pageSize: sp.size ? Number(sp.size) : undefined,
+  });
 
   const buildHref = (overrides: Record<string, string>) => {
     const next: Record<string, string> = {

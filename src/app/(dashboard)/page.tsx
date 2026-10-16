@@ -1,5 +1,5 @@
 import { requireUser } from "@/lib/auth";
-import { db } from "@/lib/db";
+import { getDashboardOverview } from "@/features/reports/queries";
 import Link from "next/link";
 import {
   Card,
@@ -20,7 +20,7 @@ import {
   Leaf,
   Plus,
 } from "lucide-react";
-import { STATUS_LABEL, STATUS_STYLE, type PrescriptionStatus } from "@/features/prescriptions/constants";
+import { STATUS_LABEL, STATUS_STYLE } from "@/features/prescriptions/constants";
 
 export default async function HomePage() {
   const user = await requireUser();
@@ -28,42 +28,21 @@ export default async function HomePage() {
   const greeting =
     hour < 11 ? "Chào buổi sáng" : hour < 14 ? "Chào buổi trưa" : hour < 18 ? "Chào buổi chiều" : "Chào buổi tối";
 
-  // Thống kê nhanh
-  const [{ rows: s1 }, { rows: s2 }, { rows: s3 }, { rows: s4 }] = await Promise.all([
-    db.query<{ count: string }>(
-      `SELECT COUNT(*) FROM visits WHERE visited_at::date = CURRENT_DATE`,
-    ),
-    db.query<{ count: string }>(
-      `SELECT COUNT(*) FROM prescriptions WHERE status IN ('draft','confirmed')`,
-    ),
-    db.query<{ count: string }>(`SELECT COUNT(*) FROM patients`),
-    db.query<{ count: string }>(`SELECT COUNT(*) FROM herbs WHERE is_active = true`),
-  ]);
+  const {
+    todayVisitsCount,
+    pendingPrescriptionsCount,
+    totalPatientsCount,
+    activeHerbsCount,
+    recentVisits,
+    recentPrescriptions,
+  } = await getDashboardOverview();
 
   const stats = [
-    { label: "Lượt khám hôm nay", value: s1[0].count, icon: Stethoscope, href: "/visits", iconBg: "bg-emerald-100 text-emerald-700" },
-    { label: "Đơn chờ bốc thuốc", value: s2[0].count, icon: FileText, href: "/patients", iconBg: "bg-amber-100 text-amber-700" },
-    { label: "Tổng bệnh nhân", value: s3[0].count, icon: Users, href: "/patients", iconBg: "bg-sky-100 text-sky-700" },
-    { label: "Vị thuốc", value: s4[0].count, icon: Leaf, href: "/herbs", iconBg: "bg-lime-100 text-lime-700" },
+    { label: "Lượt khám hôm nay", value: String(todayVisitsCount), icon: Stethoscope, href: "/visits", iconBg: "bg-emerald-100 text-emerald-700" },
+    { label: "Đơn chờ bốc thuốc", value: String(pendingPrescriptionsCount), icon: FileText, href: "/patients", iconBg: "bg-amber-100 text-amber-700" },
+    { label: "Tổng bệnh nhân", value: String(totalPatientsCount), icon: Users, href: "/patients", iconBg: "bg-sky-100 text-sky-700" },
+    { label: "Vị thuốc", value: String(activeHerbsCount), icon: Leaf, href: "/herbs", iconBg: "bg-lime-100 text-lime-700" },
   ];
-
-  // Lượt khám gần đây
-  interface RecentVisit { id: string; visited_at: string; full_name: string; patient_code: string }
-  const { rows: recentVisits } = await db.query<RecentVisit>(
-    `SELECT v.id, v.visited_at, p.full_name, p.patient_code
-     FROM visits v JOIN patients p ON p.id = v.patient_id
-     ORDER BY v.visited_at DESC LIMIT 5`,
-  );
-
-  // Đơn thuốc gần đây
-  interface RecentPrescription { id: string; prescription_code: string; status: PrescriptionStatus; num_of_packs: number; full_name: string }
-  const { rows: recentPrescriptions } = await db.query<RecentPrescription>(
-    `SELECT pr.id, pr.prescription_code, pr.status, pr.num_of_packs, p.full_name
-     FROM prescriptions pr
-     JOIN visits v ON v.id = pr.visit_id
-     JOIN patients p ON p.id = v.patient_id
-     ORDER BY pr.created_at DESC LIMIT 5`,
-  );
 
   const shortcuts = [
     { title: "Thư viện bài thuốc", description: "Cổ phương & nghiệm phương", icon: BookOpen, href: "/formulas", iconBg: "bg-emerald-100 text-emerald-700" },

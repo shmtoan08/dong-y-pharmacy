@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { InteractionForm } from "../../InteractionForm";
 import { getInteraction } from "@/features/prescriptions/actions";
-import { searchHerbs } from "@/features/herbs/actions";
+import { searchHerbs } from "@/features/herbs/queries";
 
 export default async function EditInteractionPage({
   params,

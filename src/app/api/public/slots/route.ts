@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
-import { db } from "@/lib/db";
 import { getWorkingHours } from "@/features/schedules/service";
+import { getActivePractitioners } from "@/features/users/queries";
+import { getPublicSlotBookings } from "@/features/appointments/queries";
 
 export const dynamic = "force-dynamic";
 
@@ -33,9 +34,7 @@ export async function GET(req: Request) {
     doctorIds = [doctorId];
   } else {
     // "Bac si bat ky": tat ca BS dang active
-    const { rows: docs } = await db.query(
-      `SELECT id FROM users WHERE role = 'practitioner' AND is_active = true`
-    );
+    const docs = await getActivePractitioners();
     doctorIds = docs.map((r) => r.id);
   }
 
@@ -59,16 +58,7 @@ export async function GET(req: Request) {
   }
 
   // Dem slot da dat (theo tung BS neu chon cu the, hoac tong hop neu bat ky)
-  const { rows } = await db.query(
-    `SELECT TO_CHAR(scheduled_at AT TIME ZONE 'Asia/Ho_Chi_Minh', 'HH24:MI') AS slot,
-            practitioner_id, COUNT(*) AS cnt
-     FROM appointments
-     WHERE DATE(scheduled_at AT TIME ZONE 'Asia/Ho_Chi_Minh') = $1
-       AND status IN ('scheduled', 'confirmed', 'checked_in')
-       AND practitioner_id = ANY($2::uuid[])
-     GROUP BY slot, practitioner_id`,
-    [date, workingDoctors]
-  );
+  const rows = await getPublicSlotBookings(date, workingDoctors);
 
   // Voi "bat ky": slot available neu con it nhat 1 BS trong
   // Voi cu the: slot available neu BS do trong

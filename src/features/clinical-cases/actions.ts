@@ -5,19 +5,21 @@ import { db, withTransaction } from "@/lib/db";
 import { requireRole } from "@/lib/auth";
 import { audit } from "@/lib/audit";
 
-export interface ActionState {
-  error?: string;
-}
+import type { ActionState } from "@/types/action-state";
+export type { ActionState };
 
 async function requirePractitioner() {
   return requireRole("admin", "practitioner");
 }
 
-export interface SymptomOption {
-  id: string;
-  name: string;
-  category: string;
-}
+import {
+  getAllSymptoms as getAllSymptomsQuery,
+  diagnoseCases as diagnoseCasesQuery,
+  type SymptomOption,
+  type DiagnosisResult,
+} from "./queries";
+
+export type { SymptomOption, DiagnosisResult };
 
 export interface PatternInput {
   pattern: string;
@@ -244,52 +246,14 @@ export async function deleteClinicalCase(id: string): Promise<void> {
 }
 
 export async function getAllSymptoms(): Promise<SymptomOption[]> {
-  await requirePractitioner();
-  const { rows } = await db.query<SymptomOption>(
-    `SELECT id, name, category FROM symptoms WHERE is_active = true ORDER BY sort_order, name`,
-  );
-  return rows;
-}
-
-export interface DiagnosisResult {
-  id: string;
-  disease_name: string;
-  pattern: string;
-  treatment_principle: string | null;
-  template_id: string | null;
-  template_name: string | null;
-  matched: number;
-  total: number;
-  matched_symptoms: string[];
+  return getAllSymptomsQuery();
 }
 
 /** Chẩn đoán: chấm điểm bệnh án theo số tag triệu chứng khớp, xếp hạng giảm dần */
-export async function diagnoseCases(symptomIds: string[]): Promise<DiagnosisResult[]> {
-  await requirePractitioner();
-  if (symptomIds.length === 0) return [];
-  const { rows } = await db.query<DiagnosisResult>(
-    `SELECT c.id, d.name AS disease_name, c.pattern, c.treatment_principle,
-       c.template_id, t.name AS template_name,
-       COUNT(cs.symptom_id) FILTER (WHERE cs.symptom_id = ANY($1::uuid[])) AS matched,
-       COUNT(cs.symptom_id) AS total,
-       COALESCE(array_agg(s.name) FILTER (WHERE cs.symptom_id = ANY($1::uuid[])), '{}') AS matched_symptoms
-     FROM clinical_cases c
-     JOIN diseases d ON d.id = c.disease_id
-     LEFT JOIN prescription_templates t ON t.id = c.template_id
-     LEFT JOIN clinical_case_symptoms cs ON cs.case_id = c.id
-     LEFT JOIN symptoms s ON s.id = cs.symptom_id
-     WHERE c.is_active = true
-     GROUP BY c.id, d.name, c.pattern, c.treatment_principle, c.template_id, t.name
-     HAVING COUNT(cs.symptom_id) FILTER (WHERE cs.symptom_id = ANY($1::uuid[])) > 0
-     ORDER BY matched DESC, (COUNT(cs.symptom_id) FILTER (WHERE cs.symptom_id = ANY($1::uuid[])))::float / NULLIF(COUNT(cs.symptom_id), 0) DESC
-     LIMIT 20`,
-    [symptomIds],
-  );
-  return rows.map((r) => ({
-    ...r,
-    matched: Number(r.matched),
-    total: Number(r.total),
-  }));
+export async function diagnoseCases(
+  symptomIds: string[],
+): Promise<DiagnosisResult[]> {
+  return diagnoseCasesQuery(symptomIds);
 }
 
 export async function toggleClinicalCaseActive(id: string, isActive: boolean) {

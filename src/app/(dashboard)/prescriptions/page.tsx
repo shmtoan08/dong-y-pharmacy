@@ -1,15 +1,23 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { requireRole } from "@/lib/auth";
-import { db } from "@/lib/db";
+import {
+  getPrescriptionsList,
+  getPrescriptionFilterMetadata,
+} from "@/features/prescriptions/queries";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Eye, Printer } from "lucide-react";
-import { STATUS_LABEL, STATUS_STYLE, type PrescriptionStatus } from "@/features/prescriptions/constants";
+import { STATUS_LABEL, STATUS_STYLE } from "@/features/prescriptions/constants";
 import { PrescriptionFilterToolbar } from "./PrescriptionFilterToolbar";
 import { DispenseButton } from "./DispenseButton";
 import { PageSizeSelect } from "../visits/PageSizeSelect";
 import { Tooltip, TooltipProvider } from "@/components/ui/tooltip";
+
+export const metadata: Metadata = {
+  title: "Kê đơn & Bốc thuốc",
+};
 
 const PAGE_SIZES = [10, 25, 50];
 
@@ -22,18 +30,6 @@ const TABS: { value: string; label: string }[] = [
 ];
 
 const VALID_STATUS = ["draft", "confirmed", "completed", "cancelled"];
-
-type Row = {
-  id: string;
-  prescription_code: string;
-  status: PrescriptionStatus;
-  num_of_packs: number;
-  full_name: string;
-  patient_code: string;
-  phone: string | null;
-  practitioner_name: string | null;
-  created_at: string;
-};
 
 export default async function PrescriptionsPage({
   searchParams,
@@ -53,75 +49,21 @@ export default async function PrescriptionsPage({
   const q = (sp.q ?? "").trim();
   const dateFilter = ["today", "week"].includes(sp.date ?? "") ? sp.date! : "all";
   const practitionerFilter = sp.practitioner ?? "all";
-  const pageSize = PAGE_SIZES.includes(Number(sp.size)) ? Number(sp.size) : 10;
-  const page = Math.max(1, Number(sp.page) || 1);
 
-  // Đếm số lượng từng tab
-  const countRes = await db.query<{ status: string; cnt: string }>(
-    `SELECT status, COUNT(*)::text AS cnt FROM prescriptions GROUP BY status`,
-  );
-  const counts: Record<string, number> = {};
-  for (const r of countRes.rows) counts[r.status] = Number(r.cnt);
-  const totalAll = Object.values(counts).reduce((a, b) => a + b, 0);
-
-  // Danh sách bác sĩ cho bộ lọc
-  const pracRes = await db.query<{ id: string; name: string }>(
-    `SELECT u.id, u.full_name AS name
-     FROM users u
-     WHERE u.role = 'practitioner' AND u.is_active
-     ORDER BY name`,
-  );
-
-  const where: string[] = [];
-  const params: unknown[] = [];
-  let i = 1;
-  if (status) {
-    where.push(`pr.status = $${i}`);
-    params.push(status);
-    i++;
-  }
-  if (q) {
-    where.push(`(pr.prescription_code ILIKE $${i} OR p.full_name ILIKE $${i} OR p.phone ILIKE $${i})`);
-    params.push(`%${q}%`);
-    i++;
-  }
-  if (dateFilter === "today") {
-    where.push(`pr.created_at >= date_trunc('day', now())`);
-  } else if (dateFilter === "week") {
-    where.push(`pr.created_at >= date_trunc('week', now())`);
-  }
-  if (practitionerFilter !== "all") {
-    where.push(`pr.practitioner_id = $${i}`);
-    params.push(practitionerFilter);
-    i++;
-  }
-  const whereSql = where.length ? `WHERE ${where.join(" AND ")}` : "";
-
-  const countFiltered = await db.query<{ total: number }>(
-    `SELECT COUNT(*)::int AS total FROM prescriptions pr
-     JOIN visits v ON v.id = pr.visit_id
-     JOIN patients p ON p.id = v.patient_id
-     ${whereSql}`,
-    params,
-  );
-  const total = countFiltered.rows[0]?.total ?? 0;
-  const totalPages = Math.max(1, Math.ceil(total / pageSize));
-  const safePage = Math.min(page, totalPages);
-  const offset = (safePage - 1) * pageSize;
-
-  const { rows } = await db.query<Row>(
-    `SELECT pr.id, pr.prescription_code, pr.status, pr.num_of_packs,
-            p.full_name, p.patient_code, p.phone, pr.created_at,
-            u.full_name AS practitioner_name
-     FROM prescriptions pr
-     JOIN visits v ON v.id = pr.visit_id
-     JOIN patients p ON p.id = v.patient_id
-     JOIN users u ON u.id = pr.practitioner_id
-     ${whereSql}
-     ORDER BY pr.created_at DESC
-     LIMIT $${i} OFFSET $${i + 1}`,
-    [...params, pageSize, offset],
-  );
+  const [
+    { counts, totalAll, practitioners },
+    { rows, total, totalPages, safePage, offset, pageSize },
+  ] = await Promise.all([
+    getPrescriptionFilterMetadata(),
+    getPrescriptionsList({
+      status: sp.status,
+      q: sp.q,
+      date: sp.date,
+      practitioner: sp.practitioner,
+      page: sp.page ? Number(sp.page) : undefined,
+      pageSize: sp.size ? Number(sp.size) : undefined,
+    }),
+  ]);
 
   const buildHref = (overrides: Record<string, string>) => {
     const next: Record<string, string> = {
@@ -183,7 +125,7 @@ export default async function PrescriptionsPage({
           initialQ={q}
           initialDate={dateFilter}
           initialPractitioner={practitionerFilter}
-          practitioners={pracRes.rows}
+          practitioners={practitioners}
         />
 
         {rows.length === 0 ? (

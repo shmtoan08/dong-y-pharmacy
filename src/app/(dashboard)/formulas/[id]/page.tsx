@@ -2,7 +2,7 @@ import { BackButton } from "@/components/shared/BackButton";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireUser } from "@/lib/auth";
-import { db } from "@/lib/db";
+import { getFormulaDetail } from "@/features/formulas/queries";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -32,45 +32,9 @@ export default async function FormulaDetailPage({
   const { id } = await params;
   const canEdit = user.role === "admin" || user.role === "practitioner";
 
-  const { rows: tpl } = await db.query(
-    `SELECT t.*, u.full_name AS created_by_name
-     FROM prescription_templates t
-     LEFT JOIN users u ON u.id = t.created_by
-     WHERE t.id = $1`,
-    [id],
-  );
-  if (tpl.length === 0) notFound();
-  const t = tpl[0];
-
-  const { rows: items } = await db.query(
-    `SELECT herb_name, herb_name_key, dosage_text, note
-     FROM prescription_template_items
-     WHERE template_id = $1 ORDER BY sort_order`,
-    [id],
-  );
-
-  // Bệnh án kinh nghiệm dùng bài thuốc này
-  const { rows: cases } = await db.query<{
-    id: string;
-    disease_name: string;
-    pattern: string | null;
-    treatment_principle: string | null;
-  }>(
-    `SELECT c.id, d.name AS disease_name, c.pattern, c.treatment_principle
-     FROM clinical_cases c
-     LEFT JOIN diseases d ON d.id = c.disease_id
-     WHERE c.template_id = $1 AND c.is_active = true
-     ORDER BY c.created_at DESC`,
-    [id],
-  );
-
-  // Lịch sử version của cùng code
-  const { rows: versions } = await db.query(
-    `SELECT id, version, created_at, is_active
-     FROM prescription_templates
-     WHERE code = $1 ORDER BY version DESC`,
-    [t.code],
-  );
+  const t = await getFormulaDetail(id);
+  if (!t) notFound();
+  const { items, cases, versions } = t;
 
   return (
     <div className="mx-auto max-w-4xl space-y-6">

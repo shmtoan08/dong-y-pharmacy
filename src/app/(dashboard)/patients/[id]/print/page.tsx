@@ -1,4 +1,4 @@
-import { getPatient } from "@/features/patients/actions";
+import { getPatient } from "@/features/patients/queries";
 import { getVisitsByPatient, getVisitDetail } from "@/features/visits/actions";
 import { getPrescriptionsByVisit } from "@/features/prescriptions/actions";
 import { notFound } from "next/navigation";

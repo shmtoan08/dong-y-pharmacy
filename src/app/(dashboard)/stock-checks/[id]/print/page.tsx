@@ -1,4 +1,4 @@
-import { getStockCheck } from "@/features/inventory/actions";
+import { getStockCheck } from "@/features/inventory/queries";
 import { notFound } from "next/navigation";
 import { PrintButton } from "@/components/shared/PrintButton";
 

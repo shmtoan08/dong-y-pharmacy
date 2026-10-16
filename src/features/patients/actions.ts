@@ -6,9 +6,8 @@ import { requireRole } from "@/lib/auth";
 import { audit } from "@/lib/audit";
 import { patientSchema, type PatientInput } from "./schemas";
 
-export interface ActionState {
-  error?: string;
-}
+import type { ActionState } from "@/types/action-state";
+export type { ActionState };
 
 async function requireClinician() {
   // Admin + thầy thuốc được quản lý BN; nhân viên bốc thuốc chỉ xem
@@ -27,18 +26,13 @@ export async function nextPatientCode(): Promise<string> {
   return `BN-${ymd}-${String(n).padStart(3, "0")}`;
 }
 
-export interface PatientRow {
-  id: string;
-  patient_code: string;
-  full_name: string;
-  date_of_birth: string | null;
-  sex: string | null;
-  phone: string | null;
-  address: string | null;
-  medical_history: string | null;
-  allergies: string | null;
-  created_at: string;
-}
+import {
+  getPatient as getPatientQuery,
+  searchPatients as searchPatientsQuery,
+  type PatientRow,
+} from "./queries";
+
+export type { PatientRow };
 
 export async function createPatient(
   _prev: ActionState,
@@ -141,27 +135,9 @@ export async function updatePatient(
 }
 
 export async function searchPatients(q: string): Promise<PatientRow[]> {
-  await requireRole("admin", "practitioner", "dispenser");
-  const like = `%${q.trim()}%`;
-  const { rows } = await db.query<PatientRow>(
-    `SELECT id, patient_code, full_name, date_of_birth, sex, phone,
-            address, medical_history, allergies, created_at
-     FROM patients
-     WHERE full_name ILIKE $1 OR phone ILIKE $1 OR patient_code ILIKE $1
-     ORDER BY created_at DESC
-     LIMIT 50`,
-    [like],
-  );
-  return rows;
+  return searchPatientsQuery(q);
 }
 
 export async function getPatient(id: string): Promise<PatientRow | null> {
-  await requireRole("admin", "practitioner", "dispenser");
-  const { rows } = await db.query<PatientRow>(
-    `SELECT id, patient_code, full_name, date_of_birth, sex, phone,
-            address, medical_history, allergies, created_at
-     FROM patients WHERE id = $1`,
-    [id],
-  );
-  return rows[0] ?? null;
+  return getPatientQuery(id);
 }

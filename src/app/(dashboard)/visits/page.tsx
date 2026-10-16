@@ -1,37 +1,21 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { requireRole } from "@/lib/auth";
-import { db } from "@/lib/db";
+import { getVisitsList } from "@/features/visits/queries";
+
+export const metadata: Metadata = {
+  title: "Khám bệnh & Bệnh án",
+};
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { NewVisitDialog } from "./NewVisitDialog";
-import { PageSizeSelect } from "./PageSizeSelect"
-import { VisitFilterToolbar } from "./VisitFilterToolbar"
+import { PageSizeSelect } from "./PageSizeSelect";
+import { VisitFilterToolbar } from "./VisitFilterToolbar";
 import { Tooltip, TooltipProvider } from "@/components/ui/tooltip";
 import { Eye, Pill, Printer } from "lucide-react";
 
 const PAGE_SIZES = [10, 25, 50];
-
-const DATE_FILTERS = [
-  { value: "all", label: "Tất cả ngày" },
-  { value: "today", label: "Hôm nay" },
-  { value: "yesterday", label: "Hôm qua" },
-  { value: "week", label: "Tuần này" },
-];
-
-const STATUS_FILTERS = [
-  { value: "all", label: "Tất cả trạng thái" },
-  { value: "pending", label: "Chưa kê đơn" },
-  { value: "prescribed", label: "Đã kê đơn" },
-];
 
 function ageGender(dob: string | null, sex: string | null): string {
   const sexLabel = sex ? SEX_LABEL[sex] ?? sex : null;
@@ -58,77 +42,17 @@ export default async function VisitsPage({
   const q = sp.q?.trim() ?? "";
   const dateFilter = sp.date ?? "all";
   const statusFilter = sp.status ?? "all";
-  const page = Math.max(1, Number(sp.page) || 1);
-  const pageSize = PAGE_SIZES.includes(Number(sp.size)) ? Number(sp.size) : 10;
-
-  const conditions: string[] = [];
-  const params: unknown[] = [];
-
-  if (q) {
-    params.push(`%${q}%`);
-    const n = params.length;
-    conditions.push(
-      `(p.full_name ILIKE $${n} OR p.phone ILIKE $${n} OR p.patient_code ILIKE $${n})`,
-    );
-  }
-  if (dateFilter === "today") conditions.push(`v.visited_at::date = CURRENT_DATE`);
-  else if (dateFilter === "yesterday") conditions.push(`v.visited_at::date = CURRENT_DATE - 1`);
-  else if (dateFilter === "week") conditions.push(`v.visited_at >= date_trunc('week', CURRENT_DATE)`);
-
-  // Lọc trạng thái đơn: cần join prescriptions
-  const havingPrescription = statusFilter === "prescribed";
-  const noPrescription = statusFilter === "pending";
-
-  const where = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
-
-  interface VisitRow {
-    id: string;
-    visited_at: string;
-    final_diagnosis: string | null;
-    patient_id: string;
-    full_name: string;
-    patient_code: string;
-    phone: string | null;
-    sex: string | null;
-    date_of_birth: string | null;
-    prescription_id: string | null;
-    prescription_code: string | null;
-  }
-
-  const { rows: countRows } = await db.query<{ count: string }>(
-    `SELECT COUNT(*) FROM visits v
-     JOIN patients p ON p.id = v.patient_id
-     LEFT JOIN prescriptions pr ON pr.visit_id = v.id
-     ${where}
-     ${havingPrescription ? (where ? "AND" : "WHERE") + " pr.id IS NOT NULL" : ""}
-     ${noPrescription ? (where ? "AND" : "WHERE") + " pr.id IS NULL" : ""}`,
-    params,
-  );
-  const total = Number(countRows[0].count);
-  const totalPages = Math.max(1, Math.ceil(total / pageSize));
-  const safePage = Math.min(page, totalPages);
-  const offset = (safePage - 1) * pageSize;
-
-  const { rows } = await db.query<VisitRow>(
-    `SELECT v.id, v.visited_at, v.final_diagnosis, v.patient_id,
-            p.full_name, p.patient_code, p.phone, p.sex, p.date_of_birth,
-            pr.id AS prescription_id, pr.prescription_code
-     FROM visits v
-     JOIN patients p ON p.id = v.patient_id
-     LEFT JOIN prescriptions pr ON pr.visit_id = v.id
-     ${where}
-     ${havingPrescription ? (where ? "AND" : "WHERE") + " pr.id IS NOT NULL" : ""}
-     ${noPrescription ? (where ? "AND" : "WHERE") + " pr.id IS NULL" : ""}
-     ORDER BY v.visited_at DESC
-     LIMIT ${pageSize} OFFSET ${offset}`,
-    params,
-  );
+  const { rows, total, totalPages, safePage, offset, pageSize } =
+    await getVisitsList({
+      q: sp.q,
+      date: sp.date,
+      status: sp.status,
+      page: sp.page ? Number(sp.page) : undefined,
+      pageSize: sp.size ? Number(sp.size) : undefined,
+    });
 
   const buildHref = (overrides: Record<string, string>) => {
     const next = { q, date: dateFilter, status: statusFilter, page: String(safePage), size: String(pageSize), ...overrides };
-    const parts = Object.entries(next)
-      .filter(([, v]) => v && !(v === "all" && ["date", "status"].includes(v as string)))
-      .map(([k, v]) => `${k}=${encodeURIComponent(v)}`);
     // Giữ date/status=all để filter rõ ràng
     const all = Object.entries({ q: next.q, date: next.date, status: next.status, page: next.page, size: next.size })
       .filter(([, v]) => v)

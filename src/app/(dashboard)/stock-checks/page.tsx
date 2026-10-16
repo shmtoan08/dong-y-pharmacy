@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Plus, Eye, Printer } from "lucide-react";
-import { listStockChecks } from "@/features/inventory/actions";
+import { listStockChecks } from "@/features/inventory/queries";
 import { CheckFilterToolbar } from "./CheckFilterToolbar";
 import { PageSizeSelect } from "../visits/PageSizeSelect";
 import { Tooltip, TooltipProvider } from "@/components/ui/tooltip";

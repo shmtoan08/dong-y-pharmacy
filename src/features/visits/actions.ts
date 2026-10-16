@@ -1,29 +1,27 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { db, withTransaction } from "@/lib/db";
+import { withTransaction } from "@/lib/db";
 import { requireRole } from "@/lib/auth";
 import { audit } from "@/lib/audit";
 import { visitSchema } from "./schemas";
 
-export interface ActionState {
-  error?: string;
-}
+import type { ActionState } from "@/types/action-state";
+export type { ActionState };
 
-export interface PulsePattern {
-  id: string;
-  name_viet: string;
-  name_han_viet: string;
-  description: string;
-}
+import {
+  getPulsePatterns as getPulsePatternsQuery,
+  getVisitsByPatient as getVisitsByPatientQuery,
+  getVisitDetail as getVisitDetailQuery,
+  type PulsePattern,
+  type VisitRow,
+  type VisitDetail,
+} from "./queries";
+
+export type { PulsePattern, VisitRow, VisitDetail };
 
 export async function getPulsePatterns(): Promise<PulsePattern[]> {
-  await requireRole("admin", "practitioner", "dispenser");
-  const { rows } = await db.query<PulsePattern>(
-    `SELECT id, name_viet, name_han_viet, description
-     FROM pulse_patterns ORDER BY name_viet`,
-  );
-  return rows;
+  return getPulsePatternsQuery();
 }
 
 interface PulseInput {
@@ -125,67 +123,11 @@ export async function createVisit(
   redirect(`/patients/${d.patient_id}`);
 }
 
-export interface VisitRow {
-  id: string;
-  patient_id: string;
-  visited_at: string;
-  final_diagnosis: string | null;
-  practitioner_name: string;
-}
-
 export async function getVisitsByPatient(patientId: string): Promise<VisitRow[]> {
-  await requireRole("admin", "practitioner", "dispenser");
-  const { rows } = await db.query<VisitRow>(
-    `SELECT v.id, v.patient_id, v.visited_at, v.final_diagnosis, u.full_name AS practitioner_name
-     FROM visits v
-     JOIN users u ON u.id = v.practitioner_id
-     WHERE v.patient_id = $1
-     ORDER BY v.visited_at DESC`,
-    [patientId],
-  );
-  return rows;
-}
-
-export interface VisitDetail {
-  id: string;
-  visited_at: string;
-  inspection_notes: string | null;
-  auscultation_notes: string | null;
-  inquiry_notes: string | null;
-  palpation_notes: string | null;
-  final_diagnosis: string | null;
-  bat_cuong: string | null;
-  doctor_notes: string | null;
-  practitioner_name: string;
-  pulses: {
-    hand: string;
-    position: string;
-    pattern_name: string | null;
-    custom_note: string | null;
-  }[];
+  return getVisitsByPatientQuery(patientId);
 }
 
 /** Chi tiết đầy đủ 1 lượt khám (Tứ chẩn + Mạch) */
 export async function getVisitDetail(visitId: string): Promise<VisitDetail | null> {
-  await requireRole("admin", "practitioner", "dispenser");
-  const { rows } = await db.query(
-    `SELECT v.id, v.visited_at, v.inspection_notes, v.auscultation_notes,
-            v.inquiry_notes, v.palpation_notes, v.final_diagnosis, v.bat_cuong, v.doctor_notes,
-            u.full_name AS practitioner_name
-     FROM visits v
-     JOIN users u ON u.id = v.practitioner_id
-     WHERE v.id = $1`,
-    [visitId],
-  );
-  if (rows.length === 0) return null;
-  const pulses = await db.query(
-    `SELECT vp.hand, vp.position, pp.name_viet AS pattern_name, vp.custom_note
-     FROM visit_pulses vp
-     LEFT JOIN pulse_patterns pp ON pp.id = vp.pulse_pattern_id
-     LEFT JOIN pulse_patterns pp2 ON pp2.id = vp.pulse_pattern_id_2
-     WHERE vp.visit_id = $1
-     ORDER BY vp.hand, vp.position`,
-    [visitId],
-  );
-  return { ...rows[0], pulses: pulses.rows } as VisitDetail;
+  return getVisitDetailQuery(visitId);
 }

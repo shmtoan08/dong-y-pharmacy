@@ -6,10 +6,8 @@ import { requireRole, revokeAllSessions } from "@/lib/auth";
 import { audit } from "@/lib/audit";
 import { createUserSchema, updateUserSchema } from "./schemas";
 
-export interface ActionState {
-  error?: string;
-  success?: boolean;
-}
+import type { ActionState } from "@/types/action-state";
+export type { ActionState };
 
 async function requireAdmin() {
   return requireRole("admin");

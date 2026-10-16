@@ -61,8 +61,8 @@ export function OnlineBookingBoard({
       await fn();
       showInfo("Thành công", okMsg);
       router.refresh();
-    } catch (e: any) {
-      showInfo("Lỗi", e.message || "Thao tác thất bại");
+    } catch (e: unknown) {
+      showInfo("Lỗi", e instanceof Error ? e.message : "Thao tác thất bại");
     } finally {
       setLoading(null);
     }

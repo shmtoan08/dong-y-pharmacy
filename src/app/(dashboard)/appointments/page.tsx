@@ -2,10 +2,12 @@ export const dynamic = "force-dynamic";
 
 import { Card, CardContent } from "@/components/ui/card";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import Link from "next/link";
-import { listAppointments, getTodayStats } from "@/features/appointments/actions";
+import {
+  listAppointments,
+  getTodayStats,
+  getAppointmentPractitioners,
+} from "@/features/appointments/queries";
 import { getSessionUser } from "@/lib/auth";
-import { db } from "@/lib/db";
 import { NewAppointmentButton } from "./NewAppointmentButton";
 import { WalkInButton } from "./WalkInButton";
 import { AppointmentRowActions, StatusBadge } from "./AppointmentActions";
@@ -22,7 +24,7 @@ export default async function AppointmentsPage({
 }) {
   const sp = await searchParams;
   const date = sp.date || new Date().toISOString().slice(0, 10);
-  const [appointments, stats, user] = await Promise.all([
+  const [appointments, stats, user, practitioners] = await Promise.all([
     listAppointments(date, {
       q: sp.q || undefined,
       practitionerId: sp.practitionerId || undefined,
@@ -30,11 +32,8 @@ export default async function AppointmentsPage({
     }),
     getTodayStats(date),
     getSessionUser(),
+    getAppointmentPractitioners(),
   ]);
-
-  const { rows: practitioners } = await db.query<{ id: string; full_name: string }>(
-    `SELECT u.id, u.full_name FROM users u WHERE u.role = 'practitioner' AND u.is_active = true ORDER BY u.full_name`,
-  );
 
   const canManage = user?.role === "admin" || user?.role === "practitioner";
   const isToday = date === new Date().toISOString().slice(0, 10);

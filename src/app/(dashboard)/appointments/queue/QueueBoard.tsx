@@ -4,7 +4,6 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { callNextNumber, completeQueueNumber, cancelQueueNumber, type QueueItem } from "@/features/appointments/queue";
 
 export function QueueBoard({ initialQueue }: { initialQueue: QueueItem[] }) {
@@ -21,8 +20,8 @@ export function QueueBoard({ initialQueue }: { initialQueue: QueueItem[] }) {
       else if (action === "complete" && num) await completeQueueNumber(num);
       else if (action === "cancel" && id) await cancelQueueNumber(id);
       router.refresh();
-    } catch (e: any) {
-      alert(e.message || "Lỗi");
+    } catch (e: unknown) {
+      alert(e instanceof Error ? e.message : "Lỗi");
     } finally {
       setLoading(null);
     }

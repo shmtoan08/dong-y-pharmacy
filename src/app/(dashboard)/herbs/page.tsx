@@ -1,6 +1,14 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { requireRole } from "@/lib/auth";
-import { db } from "@/lib/db";
+import {
+  getHerbsList,
+  getHerbFilterOptions,
+} from "@/features/herbs/queries";
+
+export const metadata: Metadata = {
+  title: "Danh mục vị thuốc",
+};
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -47,22 +55,6 @@ function stockStatus(stock: number, minStock: number): {
   };
 }
 
-type HerbRow = {
-  id: string;
-  code: string;
-  name_common: string;
-  name_han_viet: string | null;
-  name_science: string | null;
-  property_tinh: string | null;
-  property_vi: string | null;
-  quy_kinh: string[] | null;
-  base_unit: string;
-  price_per_unit: number | null;
-  stock_quantity: number;
-  min_stock_quantity: number;
-  is_active: boolean;
-};
-
 export default async function HerbsPage({
   searchParams,
 }: {
@@ -85,87 +77,25 @@ export default async function HerbsPage({
   const stockFilter = ["available", "low", "out"].includes(sp.stock ?? "")
     ? sp.stock!
     : "all";
-  // Mặc định chỉ hiện thuốc Bắc
   const typeFilter = ["bac", "nam", "ca_hai", "all"].includes(sp.type ?? "")
     ? sp.type!
     : "bac";
   const groupFilter = sp.group ?? "all";
-  const pageSize = PAGE_SIZES.includes(Number(sp.size)) ? Number(sp.size) : 10;
-  const page = Math.max(1, Number(sp.page) || 1);
 
-  const { normalizeHerbKey } = await import("@/lib/herb-key");
-  const queryKey = normalizeHerbKey(q);
-
-  // Quy kinh options (distinct)
-  const qkRes = await db.query<{ k: string }>(
-    `SELECT DISTINCT unnest(quy_kinh) AS k FROM herbs WHERE quy_kinh IS NOT NULL ORDER BY k`,
-  );
-  const quyKinhOptions = qkRes.rows.map((r) => r.k);
-
-  // Nhóm thuốc options
-  const grpRes = await db.query<{ id: string; name: string }>(
-    `SELECT id, name FROM herb_groups ORDER BY sort_order`,
-  );
-  const groupOptions = grpRes.rows;
-
-  const where: string[] = [];
-  const params: unknown[] = [];
-  let i = 1;
-  if (q) {
-    where.push(
-      `(h.name_common ILIKE $${i} OR h.code ILIKE $${i} OR h.canonical_key LIKE $${i + 1} OR EXISTS (SELECT 1 FROM herb_aliases a WHERE a.herb_id = h.id AND (a.alias_name ILIKE $${i} OR a.alias_key LIKE $${i + 1})))`,
-    );
-    params.push(`%${q}%`, `%${queryKey}%`);
-    i += 2;
-  }
-  if (tinhFilter !== "all") {
-    where.push(`h.property_tinh ILIKE $${i}`);
-    params.push(tinhFilter);
-    i++;
-  }
-  if (quyKinhFilter !== "all") {
-    where.push(`$${i} = ANY(h.quy_kinh)`);
-    params.push(quyKinhFilter);
-    i++;
-  }
-  if (typeFilter !== "all") {
-    where.push(`h.medicine_type = $${i}`);
-    params.push(typeFilter);
-    i++;
-  }
-  if (groupFilter !== "all") {
-    where.push(`h.herb_group_id = $${i}`);
-    params.push(groupFilter);
-    i++;
-  }
-  if (stockFilter === "out") {
-    where.push(`COALESCE((SELECT SUM(l.quantity_current) FROM stock_lots l WHERE l.herb_id = h.id), 0) <= 0`);
-  } else if (stockFilter === "low") {
-    where.push(`COALESCE((SELECT SUM(l.quantity_current) FROM stock_lots l WHERE l.herb_id = h.id), 0) BETWEEN 1 AND h.min_stock_quantity`);
-  } else if (stockFilter === "available") {
-    where.push(`COALESCE((SELECT SUM(l.quantity_current) FROM stock_lots l WHERE l.herb_id = h.id), 0) > h.min_stock_quantity`);
-  }
-  const whereSql = where.length ? `WHERE ${where.join(" AND ")}` : "";
-
-  const countRes = await db.query<{ total: number }>(
-    `SELECT COUNT(*)::int AS total FROM herbs h ${whereSql}`,
-    params,
-  );
-  const total = countRes.rows[0]?.total ?? 0;
-  const totalPages = Math.max(1, Math.ceil(total / pageSize));
-  const safePage = Math.min(page, totalPages);
-  const offset = (safePage - 1) * pageSize;
-
-  const { rows } = await db.query<HerbRow>(
-    `SELECT h.id, h.code, h.name_common, h.name_han_viet, h.name_science,
-            h.property_tinh, h.property_vi, h.quy_kinh, h.base_unit,
-            h.price_per_unit, COALESCE((SELECT SUM(l.quantity_current) FROM stock_lots l WHERE l.herb_id = h.id), 0) AS stock_quantity, h.min_stock_quantity, h.is_active
-     FROM herbs h
-     ${whereSql}
-     ORDER BY h.code
-     LIMIT $${i} OFFSET $${i + 1}`,
-    [...params, pageSize, offset],
-  );
+  const [{ quyKinhOptions, groupOptions }, { rows, total, totalPages, safePage, offset, pageSize }] =
+    await Promise.all([
+      getHerbFilterOptions(),
+      getHerbsList({
+        q: sp.q,
+        tinh: sp.tinh,
+        quykinh: sp.quykinh,
+        stock: sp.stock,
+        type: sp.type,
+        group: sp.group,
+        page: sp.page ? Number(sp.page) : undefined,
+        pageSize: sp.size ? Number(sp.size) : undefined,
+      }),
+    ]);
 
   const buildHref = (overrides: Record<string, string>) => {
     const next: Record<string, string> = {

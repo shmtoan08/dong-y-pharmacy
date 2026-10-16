@@ -3,13 +3,12 @@ export const dynamic = "force-dynamic";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 
 
 import { Tooltip, TooltipProvider } from "@/components/ui/tooltip";
 import { Printer } from "lucide-react";
 import Link from "next/link";
-import { getLedger } from "@/features/finance/ledger";
+import { getLedger } from "@/features/finance/queries";
 import { ReportFilterBar } from "../../reports/ReportFilterBar";
 import { PaginatedTable } from "../../reports/PaginatedTable";
 import { ManualTxButton } from "./ManualTxButton";

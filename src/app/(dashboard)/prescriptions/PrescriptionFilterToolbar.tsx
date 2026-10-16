@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Search, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
@@ -33,12 +33,15 @@ export function PrescriptionFilterToolbar({
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const urlQ = searchParams.get("q") ?? "";
+  const [prevUrlQ, setPrevUrlQ] = useState(urlQ);
   const [q, setQ] = useState(initialQ);
-  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  useEffect(() => {
-    setQ(searchParams.get("q") ?? "");
-  }, [searchParams]);
+  if (prevUrlQ !== urlQ) {
+    setPrevUrlQ(urlQ);
+    setQ(urlQ);
+  }
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const apply = (next: { q?: string; date?: string; practitioner?: string }) => {
     const params = new URLSearchParams(searchParams.toString());
