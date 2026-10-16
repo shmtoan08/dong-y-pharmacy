@@ -33,8 +33,11 @@ interface FormulaFormProps {
   defaultValues?: Partial<CreateFormulaInput>;
 }
 
+type DosageUnit = "g" | "chỉ" | "lượng";
+
 export function FormulaForm({ mode, editId, defaultValues }: FormulaFormProps) {
   const [submitError, setSubmitError] = useState<string | undefined>();
+  const [defaultUnit, setDefaultUnit] = useState<DosageUnit>("g");
 
   const form = useForm<CreateFormulaInput>({
     resolver: zodResolver(createFormulaSchema),
@@ -50,7 +53,7 @@ export function FormulaForm({ mode, editId, defaultValues }: FormulaFormProps) {
     },
   });
 
-  const { fields, append, remove } = useFieldArray({
+  const { fields, prepend, remove } = useFieldArray({
     control: form.control,
     name: "items",
   });
@@ -74,6 +77,15 @@ export function FormulaForm({ mode, editId, defaultValues }: FormulaFormProps) {
   };
 
   const [state, formAction, pending] = useActionState(action, {});
+
+  // Gõ số lượng rồi rời ô → tự điền đơn vị mặc định (12 → 12g).
+  // Đã có đơn vị (12g, 12 chỉ, ...) thì giữ nguyên.
+  const autoFillUnit = (i: number) => {
+    const v = (form.getValues(`items.${i}.dosage_text`) ?? "").trim();
+    if (/^\d+(\.\d+)?$/.test(v)) {
+      form.setValue(`items.${i}.dosage_text`, `${v}${defaultUnit}`, { shouldDirty: true });
+    }
+  };
 
   return (
     <form action={formAction} className="space-y-6">
@@ -180,14 +192,30 @@ export function FormulaForm({ mode, editId, defaultValues }: FormulaFormProps) {
               </span>
             )}
           </CardTitle>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => append({ herb_name: "", dosage_text: "", note: "" })}
-          >
-            <Plus className="mr-1 h-4 w-4" /> Thêm vị
-          </Button>
+          <div className="flex items-center gap-2">
+            <Label className="text-xs text-muted-foreground">Đơn vị:</Label>
+            <Select
+              value={defaultUnit}
+              onValueChange={(v) => setDefaultUnit(v as DosageUnit)}
+            >
+              <SelectTrigger className="w-[84px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="g">g</SelectItem>
+                <SelectItem value="chỉ">chỉ</SelectItem>
+                <SelectItem value="lượng">lượng</SelectItem>
+              </SelectContent>
+            </Select>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => prepend({ herb_name: "", dosage_text: "", note: "" })}
+            >
+              <Plus className="mr-1 h-4 w-4" /> Thêm vị
+            </Button>
+          </div>
         </CardHeader>
         <CardContent className="space-y-3">
           {fields.map((field, i) => (
@@ -212,7 +240,8 @@ export function FormulaForm({ mode, editId, defaultValues }: FormulaFormProps) {
               <div className="space-y-1">
                 <Input
                   {...form.register(`items.${i}.dosage_text`)}
-                  placeholder="12g"
+                  placeholder={`12${defaultUnit}`}
+                  onBlur={() => autoFillUnit(i)}
                 />
                 {form.formState.errors.items?.[i]?.dosage_text && (
                   <p className="text-xs text-destructive">
