@@ -1,4 +1,6 @@
-import { BackButton } from "@/components/shared/BackButton";
+import Link from "next/link";
+import { ArrowLeft } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { notFound } from "next/navigation";
 import { requireRole } from "@/lib/auth";
 import { db } from "@/lib/db";
@@ -29,7 +31,11 @@ export default async function EditFormulaPage({
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
-      <BackButton href={`/formulas/${id}`} />
+      <Button variant="ghost" size="sm" asChild className="gap-1.5 text-stone-600 hover:text-stone-900">
+        <Link href="/formulas">
+          <ArrowLeft className="h-4 w-4" /> Quay lại
+        </Link>
+      </Button>
       <div>
         <h1 className="text-2xl font-bold">Sửa bài thuốc</h1>
         <p className="text-muted-foreground">

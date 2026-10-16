@@ -259,9 +259,7 @@ export function FormulaForm({ mode, editId, defaultValues }: FormulaFormProps) {
               : "Lưu version mới"}
         </Button>
         <Button variant="outline" asChild>
-          <Link href={mode === "create" ? "/formulas" : `/formulas/${editId}`}>
-            Hủy
-          </Link>
+          <Link href="/formulas">Hủy</Link>
         </Button>
       </div>
     </form>
