@@ -95,6 +95,16 @@ export default async function HerbDetailPage({
             {herb.group_name && (
               <p className="mt-1 text-sm text-stone-500">{herb.group_name}</p>
             )}
+            {herb.updated_at && (
+              <p className="mt-1 text-xs text-stone-400">
+                Cập nhật:{" "}
+                {new Date(herb.updated_at).toLocaleDateString("vi-VN", {
+                  day: "2-digit",
+                  month: "2-digit",
+                  year: "numeric",
+                })}
+              </p>
+            )}
           </div>
         </div>
         {canEdit && (

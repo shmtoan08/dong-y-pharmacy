@@ -28,6 +28,7 @@ export interface Herb {
   min_stock_quantity: number;
   is_valuable: boolean;
   is_active: boolean;
+  updated_at: string | Date | null;
 }
 
 export interface HerbAlias {
