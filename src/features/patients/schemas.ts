@@ -5,6 +5,18 @@ export const patientSchema = z.object({
   date_of_birth: z
     .string()
     .optional()
+    .refine((v) => {
+      // Ngày phải tồn tại trên lịch: new Date("2026-02-31") tự lăn thành
+      // 03/03 nên phải verify round-trip y/m/d.
+      if (!v) return true;
+      const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(v);
+      if (!m) return false;
+      const y = Number(m[1]);
+      const mo = Number(m[2]);
+      const d = Number(m[3]);
+      const dt = new Date(y, mo - 1, d);
+      return dt.getFullYear() === y && dt.getMonth() === mo - 1 && dt.getDate() === d;
+    }, "Ngày sinh không hợp lệ")
     .refine(
       (v) => !v || new Date(v) <= new Date(),
       "Ngày sinh không được ở tương lai",

@@ -48,27 +48,56 @@ export function PatientForm({ action, initial, submitLabel }: PatientFormProps) 
     register,
     handleSubmit,
     setValue,
+    setError,
+    clearErrors,
     watch,
     formState: { errors, isSubmitting },
   } = form;
   const sex = watch("sex");
-  const dob = watch("date_of_birth") ?? "";
-  const [dobD, dobM, dobY] = dob ? dob.split("-").reverse() : ["", "", ""];
+  // 3 ô ngày sinh giữ state riêng: trước đây suy ra từ date_of_birth nên khi
+  // tạo mới (date_of_birth = "") gõ từng ô không bao giờ ghép được ngày đầy đủ.
+  const [dobInitD, dobInitM, dobInitY] = initial?.date_of_birth
+    ? initial.date_of_birth.split("-").reverse()
+    : ["", "", ""];
+  const [dobParts, setDobParts] = useState({
+    d: dobInitD,
+    m: dobInitM,
+    y: dobInitY,
+  });
   const [phone, setPhone] = useState(initial?.phone ? formatPhone(initial.phone) : "");
+
+  const isDobPartial = (p: { d: string; m: string; y: string }) =>
+    (p.d !== "" || p.m !== "" || p.y !== "") && !(p.d && p.m && p.y.length === 4);
 
   const setDobPart = (part: "d" | "m" | "y", val: string) => {
     const num = val.replace(/\D/g, "");
-    const cur = { d: dobD, m: dobM, y: dobY };
-    cur[part] = num;
+    const cur = { ...dobParts, [part]: num };
+    setDobParts(cur);
     if (cur.d && cur.m && cur.y.length === 4) {
       const iso = `${cur.y}-${cur.m.padStart(2, "0")}-${cur.d.padStart(2, "0")}`;
       setValue("date_of_birth", iso, { shouldValidate: true });
+      clearErrors("date_of_birth");
+    } else if (!cur.d && !cur.m && !cur.y) {
+      setValue("date_of_birth", "", { shouldValidate: false });
+      clearErrors("date_of_birth");
     } else {
+      // Nhập dở: không xóa lặng lẽ, lỗi hiện khi rời nhóm ô hoặc khi submit
       setValue("date_of_birth", "", { shouldValidate: false });
     }
   };
 
+  const onDobBlur = () => {
+    if (isDobPartial(dobParts)) {
+      setError("date_of_birth", { type: "manual", message: "Nhập đủ ngày/tháng/năm" });
+    }
+  };
+
   const onSubmit = async (values: PatientInput) => {
+    // Ngày sinh nhập dở mà chưa rời nhóm ô: chặn submit + hiện lỗi
+    if (isDobPartial(dobParts)) {
+      setError("date_of_birth", { type: "manual", message: "Nhập đủ ngày/tháng/năm" });
+      return;
+    }
     setServerError(undefined);
     const formData = new FormData();
     formData.set("full_name", values.full_name);
@@ -87,8 +116,14 @@ export function PatientForm({ action, initial, submitLabel }: PatientFormProps) 
 
   const err = (name: keyof PatientInput) =>
     errors[name] ? (
-      <p className="text-xs font-medium text-red-600">{errors[name]?.message as string}</p>
+      <p id={`${name}-error`} className="text-xs font-medium text-red-600">{errors[name]?.message as string}</p>
     ) : null;
+
+  // Nối input với thông báo lỗi cho screen reader + gợi ý autofill mobile
+  const aria = (name: keyof PatientInput) => ({
+    "aria-invalid": errors[name] ? true : undefined,
+    "aria-describedby": errors[name] ? `${name}-error` : undefined,
+  });
 
   // Viền đỏ khi field có lỗi
   const inputCls = (name: keyof PatientInput) =>
@@ -108,7 +143,9 @@ export function PatientForm({ action, initial, submitLabel }: PatientFormProps) 
                 id="full_name"
                 maxLength={100}
                 placeholder="Nguyễn Văn A"
+                autoComplete="name"
                 className={inputCls("full_name")}
+                {...aria("full_name")}
                 {...register("full_name")}
               />
               {err("full_name")}
@@ -116,15 +153,22 @@ export function PatientForm({ action, initial, submitLabel }: PatientFormProps) 
             {/* Ngày sinh: 3 ô số thay cho date picker (dễ chọn năm sinh xa) */}
             <div className="space-y-1.5">
               <Label>Ngày sinh</Label>
-              <div className="flex gap-2">
+              <div
+                className="flex gap-2"
+                onBlur={(e) => {
+                  // Chỉ báo lỗi khi rời cả nhóm 3 ô (tab giữa các ô không báo)
+                  if (!e.currentTarget.contains(e.relatedTarget as Node | null)) onDobBlur();
+                }}
+              >
                 <Input
                   inputMode="numeric"
                   maxLength={2}
                   placeholder="Ngày"
                   aria-label="Ngày sinh"
                   className={cn("text-center", inputCls("date_of_birth"))}
-                  defaultValue={dobD}
+                  value={dobParts.d}
                   onChange={(e) => setDobPart("d", e.target.value)}
+                  {...aria("date_of_birth")}
                 />
                 <Input
                   inputMode="numeric"
@@ -132,8 +176,9 @@ export function PatientForm({ action, initial, submitLabel }: PatientFormProps) 
                   placeholder="Tháng"
                   aria-label="Tháng sinh"
                   className={cn("text-center", inputCls("date_of_birth"))}
-                  defaultValue={dobM}
+                  value={dobParts.m}
                   onChange={(e) => setDobPart("m", e.target.value)}
+                  {...aria("date_of_birth")}
                 />
                 <Input
                   inputMode="numeric"
@@ -141,8 +186,9 @@ export function PatientForm({ action, initial, submitLabel }: PatientFormProps) 
                   placeholder="Năm"
                   aria-label="Năm sinh"
                   className={cn("text-center", inputCls("date_of_birth"))}
-                  defaultValue={dobY}
+                  value={dobParts.y}
                   onChange={(e) => setDobPart("y", e.target.value)}
+                  {...aria("date_of_birth")}
                 />
               </div>
               {err("date_of_birth")}
@@ -152,7 +198,13 @@ export function PatientForm({ action, initial, submitLabel }: PatientFormProps) 
           {/* Giới tính: radio dễ bấm trên mobile hơn dropdown */}
           <div className="space-y-1.5">
             <Label>Giới tính</Label>
-            <div className="flex gap-2" role="radiogroup" aria-label="Giới tính">
+            <div
+              className="flex gap-2"
+              role="radiogroup"
+              aria-label="Giới tính"
+              aria-invalid={errors.sex ? true : undefined}
+              aria-describedby={errors.sex ? "sex-error" : undefined}
+            >
               {[
                 { value: "male", label: "Nam" },
                 { value: "female", label: "Nữ" },
@@ -194,7 +246,9 @@ export function PatientForm({ action, initial, submitLabel }: PatientFormProps) 
                 inputMode="tel"
                 maxLength={13}
                 placeholder="0901 234 567"
+                autoComplete="tel"
                 className={inputCls("phone")}
+                {...aria("phone")}
                 value={phone}
                 onChange={(e) => {
                   const f = formatPhone(e.target.value);
@@ -209,7 +263,9 @@ export function PatientForm({ action, initial, submitLabel }: PatientFormProps) 
               <Input
                 id="address"
                 maxLength={255}
+                autoComplete="street-address"
                 className={inputCls("address")}
+                {...aria("address")}
                 {...register("address")}
               />
               {err("address")}
@@ -223,6 +279,7 @@ export function PatientForm({ action, initial, submitLabel }: PatientFormProps) 
               rows={2}
               placeholder="Các bệnh đã/đang mắc, phẫu thuật..."
               className={inputCls("medical_history")}
+              {...aria("medical_history")}
               {...register("medical_history")}
             />
             {err("medical_history")}
@@ -235,6 +292,7 @@ export function PatientForm({ action, initial, submitLabel }: PatientFormProps) 
               rows={2}
               placeholder="Dị ứng thuốc, thức ăn..."
               className={inputCls("allergies")}
+              {...aria("allergies")}
               {...register("allergies")}
             />
             {err("allergies")}

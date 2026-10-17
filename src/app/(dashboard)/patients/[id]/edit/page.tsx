@@ -19,7 +19,7 @@ export default async function EditPatientPage({
   const initial = {
     full_name: patient.full_name,
     date_of_birth: patient.date_of_birth ?? undefined,
-    sex: patient.sex as "male" | "female" | "other" | undefined,
+    sex: (patient.sex as "male" | "female" | "other" | null) ?? undefined,
     phone: patient.phone ?? undefined,
     address: patient.address ?? undefined,
     medical_history: patient.medical_history ?? undefined,
