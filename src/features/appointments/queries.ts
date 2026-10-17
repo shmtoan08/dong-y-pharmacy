@@ -217,7 +217,7 @@ export async function getOnlineBookings(
     `SELECT a.id, a.appointment_code, p.full_name AS patient_name,
             p.patient_code, p.phone, a.scheduled_at, a.queue_number, a.queue_date,
             a.status, u.full_name AS doctor_name, a.reason AS symptom,
-            a.reject_reason, a.birth_year, a.gender, a.contacted_at,
+            a.reject_reason, EXTRACT(YEAR FROM p.date_of_birth)::int AS birth_year, p.sex AS gender, a.contacted_at,
             CASE WHEN a.queue_number IS NOT NULL THEN 'queue' ELSE 'advance' END AS booking_type
      FROM appointments a
      JOIN patients p ON p.id = a.patient_id
