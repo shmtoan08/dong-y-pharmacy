@@ -430,8 +430,17 @@ export function HerbForm({ action, initial, submitLabel, allowStay, enableImage 
                   type="file"
                   accept="image/jpeg,image/png,image/webp"
                   multiple
+                  className="hidden"
                   onChange={(e) => onImagesChange(e.target.files)}
                 />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => imageFileRef.current?.click()}
+                >
+                  ＋ Chọn ảnh
+                </Button>
                 {imageError && !createdHerbId && (
                   <p className="text-xs font-medium text-red-600">{imageError}</p>
                 )}

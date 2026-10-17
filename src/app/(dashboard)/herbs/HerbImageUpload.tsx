@@ -199,10 +199,18 @@ export function HerbImageUpload({
             type="file"
             accept="image/jpeg,image/png,image/webp"
             multiple
-            className="max-w-xs"
+            className="hidden"
             disabled={remaining <= 0 || uploading}
             onChange={(e) => onFilesChange(e.target.files)}
           />
+          <Button
+            type="button"
+            variant="outline"
+            disabled={remaining <= 0 || uploading}
+            onClick={() => fileRef.current?.click()}
+          >
+            {images.length === 0 ? "＋ Thêm ảnh" : "＋ Tải thêm ảnh"}
+          </Button>
           <Button
             type="button"
             disabled={selected.length === 0 || uploading || remaining <= 0}
