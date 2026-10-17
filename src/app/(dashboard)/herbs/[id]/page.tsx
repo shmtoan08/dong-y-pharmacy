@@ -11,7 +11,7 @@ import { AliasForm } from "./AliasForm";
 import { DosageLimitCard } from "./DosageLimitCard";
 import { getDosageLimit } from "@/features/prescriptions/actions";
 import { Pencil, Trash2, AlertTriangle } from "lucide-react";
-import Image from "next/image";
+import { HerbImageView } from "./HerbImageView";
 
 function Field({ label, value }: { label: string; value?: string | null }) {
   if (!value) return null;
@@ -66,17 +66,14 @@ export default async function HerbDetailPage({
           </div>
         </div>
       )}
-      <div className="flex items-start justify-between">
-        <div className="flex items-start gap-4">
-          {herb.image_url && (
-            <Image
-              src={herb.image_url}
-              alt={herb.name_common}
-              width={80}
-              height={80}
-              className="rounded-lg border border-stone-200 object-cover"
-            />
-          )}
+      <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
+          <HerbImageView
+            imageUrl={herb.image_url ?? null}
+            herbName={herb.name_common}
+            herbId={id}
+            canEdit={canEdit}
+          />
           <div>
             <div className="flex items-center gap-2">
               <h1 className={`text-xl font-bold md:text-2xl ${hasWarning ? "text-red-700" : "text-stone-900"}`}>{herb.name_common}</h1>

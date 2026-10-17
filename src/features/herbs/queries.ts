@@ -52,6 +52,7 @@ export interface HerbRow {
   stock_quantity: number;
   min_stock_quantity: number;
   is_active: boolean;
+  image_url: string | null;
 }
 
 export interface HerbsFilterParams {
@@ -195,7 +196,7 @@ export async function getHerbsList(
   const { rows } = await db.query<HerbRow>(
     `SELECT h.id, h.code, h.name_common, h.name_han_viet, h.name_science,
             h.property_tinh, h.property_vi, h.quy_kinh, h.base_unit,
-            h.price_per_unit, COALESCE((SELECT SUM(l.quantity_current) FROM stock_lots l WHERE l.herb_id = h.id), 0) AS stock_quantity, h.min_stock_quantity, h.is_active
+            h.price_per_unit, COALESCE((SELECT SUM(l.quantity_current) FROM stock_lots l WHERE l.herb_id = h.id), 0) AS stock_quantity, h.min_stock_quantity, h.is_active, h.image_url
      FROM herbs h
      ${whereSql}
      ORDER BY h.code
@@ -230,7 +231,7 @@ export async function searchHerbs(
   const { rows } = await db.query<Herb>(
     `SELECT h.id, h.code, h.name_common, h.canonical_key, h.name_han_viet,
             h.name_science, h.used_part, h.property_tinh, h.property_vi,
-            h.quy_kinh, h.cong_nang, h.base_unit, h.price_per_unit,
+            h.quy_kinh, h.cong_nang, h.base_unit, h.price_per_unit, h.image_url,
             COALESCE((SELECT SUM(l.quantity_current) FROM stock_lots l WHERE l.herb_id = h.id), 0) AS stock_quantity,
             h.min_stock_quantity, h.is_valuable, h.is_active
      FROM herbs h

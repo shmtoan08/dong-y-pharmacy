@@ -6,7 +6,7 @@ import { requireRole } from "@/lib/auth";
 import { audit } from "@/lib/audit";
 import { normalizeHerbKey } from "@/lib/herb-key";
 import { herbSchema, aliasSchema } from "./schemas";
-import { herbImageKey, herbImageUrl, uploadToR2 } from "@/lib/r2";
+import { herbImageKey, herbImageUrl, uploadToR2, deleteFromR2, detectImageType } from "@/lib/r2";
 
 import type { ActionState } from "@/types/action-state";
 export type { ActionState };
@@ -93,7 +93,7 @@ export async function createHerb(_prev: ActionState, formData: FormData): Promis
   );
   await audit({ userId: user.id, action: "herb.create", tableName: "herb", rowId: rows[0].id, newValue: { code: rows[0].code } });
   if (formData.get("_stay") === "1") {
-    return { ok: true, code: rows[0].code, name: v.name_common };
+    return { ok: true, code: rows[0].code, name: v.name_common, data: { id: rows[0].id } };
   }
   redirect(`/herbs/${rows[0].id}`);
 }
@@ -141,15 +141,17 @@ export async function updateHerb(
   const quyKinh = v.quy_kinh
     ? v.quy_kinh.split(",").map((s) => s.trim()).filter(Boolean)
     : null;
+  // canonical_key BAT BIEN: khong doi khi doi ten (anh R2 + mapping dung key nay).
+  // Neu doi ten, ten cu nen duoc them lam alias de search van tim thay (nguoi dung them tay).
   await db.query(
-    `UPDATE herbs SET name_common = $1, canonical_key = $2, name_han_viet = $3,
-                      name_science = $4, used_part = $5, property_tinh = $6,
-                      property_vi = $7, quy_kinh = $8, cong_nang = $9,
-                      kieng_ky = $10, vi_tri_hoc_tu = $11,
-                      base_unit = $12, price_per_unit = $13,
-                      min_stock_quantity = $14, is_valuable = $15, updated_at = NOW()
-     WHERE id = $16`,
-    [v.name_common, key, v.name_han_viet ?? null, v.name_science ?? null,
+    `UPDATE herbs SET name_common = $1, name_han_viet = $2,
+                      name_science = $3, used_part = $4, property_tinh = $5,
+                      property_vi = $6, quy_kinh = $7, cong_nang = $8,
+                      kieng_ky = $9, vi_tri_hoc_tu = $10,
+                      base_unit = $11, price_per_unit = $12,
+                      min_stock_quantity = $13, is_valuable = $14, updated_at = NOW()
+     WHERE id = $15`,
+    [v.name_common, v.name_han_viet ?? null, v.name_science ?? null,
      v.used_part ?? null, v.property_tinh ?? null, v.property_vi ?? null,
      quyKinh, v.cong_nang ?? null, v.kieng_ky ?? null, v.vi_tri_hoc_tu ?? null, v.base_unit,
      v.price_per_unit ?? null, v.min_stock_quantity ?? 0,
@@ -316,8 +318,13 @@ export async function uploadHerbImage(
   if (!herb) return { ok: false, error: "Không tìm thấy vị thuốc." };
   try {
     const buffer = new Uint8Array(await file.arrayBuffer());
+    // Kiem tra noi dung that (magic bytes), khong tin MIME do client gui (chong file gia).
+    const realType = detectImageType(buffer);
+    if (!realType) {
+      return { ok: false, error: "File không phải ảnh JPG/PNG/WebP hợp lệ." };
+    }
     const key = herbImageKey(herb.canonical_key);
-    await uploadToR2(key, buffer, file.type);
+    await uploadToR2(key, buffer, realType);
     const imageUrl = herbImageUrl(herb.canonical_key);
     await db.query(`UPDATE herbs SET image_url = $1, updated_at = NOW() WHERE id = $2`, [
       imageUrl,
@@ -334,8 +341,42 @@ export async function uploadHerbImage(
     revalidatePath(`/herbs/${herbId}`);
     revalidatePath("/herbs");
     return { ok: true, data: { image_url: imageUrl } };
+
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : "Tải ảnh lên thất bại.";
     return { ok: false, error: msg };
   }
 }
+
+/**
+ * Xoa anh vi thuoc: xoa file tren R2 + xoa image_url.
+ * - Key suy ra tu canonical_key phia server (khong lay tu client).
+ * - File tren R2 da mat -> coi nhu thanh cong (idempotent).
+ * - R2 loi (timeout/quyen/...) -> KHONG xoa image_url, tra loi de thu lai sau.
+ */
+export async function deleteHerbImage(
+  herbId: string,
+): Promise<ActionState> {
+  const user = await requireRole("admin", "practitioner");
+  const herb = await getHerbQuery(herbId);
+  if (!herb) return { ok: false, error: "Không tìm thấy vị thuốc." };
+  if (!herb.image_url) return { ok: true };
+  try {
+    await deleteFromR2(herbImageKey(herb.canonical_key));
+  } catch {
+    return { ok: false, error: "Không xóa được ảnh trên R2, vui lòng thử lại." };
+  }
+  await db.query(`UPDATE herbs SET image_url = NULL, updated_at = NOW() WHERE id = $1`, [herbId]);
+  await audit({
+    userId: user.id,
+    action: "DELETE_HERB_IMAGE",
+    tableName: "herbs",
+    rowId: herbId,
+    newValue: {},
+  });
+  const { revalidatePath } = await import("next/cache");
+  revalidatePath(`/herbs/${herbId}`);
+  revalidatePath("/herbs");
+  return { ok: true };
+}
+

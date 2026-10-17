@@ -12,12 +12,32 @@ export const metadata: Metadata = {
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Pencil } from "lucide-react";
+import { Plus, Pencil, Leaf } from "lucide-react";
 import { HerbFilterToolbar } from "./HerbFilterToolbar";
 import { PageSizeSelect } from "../visits/PageSizeSelect";
 import { Tooltip, TooltipProvider } from "@/components/ui/tooltip";
 
 const PAGE_SIZES = [10, 25, 50];
+
+/** Thumbnail anh vi thuoc 48x48 — bam vao sang chi tiet. Chua co anh -> placeholder la. */
+function HerbThumb({ id, imageUrl, name }: { id: string; imageUrl: string | null; name: string }) {
+  return (
+    <Link href={`/herbs/${id}`} aria-label={`Xem chi tiết ${name}`}>
+      {imageUrl ? (
+        <img
+          src={imageUrl}
+          alt={name}
+          loading="lazy"
+          className="h-12 w-12 rounded-md border border-stone-200 object-cover"
+        />
+      ) : (
+        <span className="flex h-12 w-12 items-center justify-center rounded-md border border-stone-200 bg-stone-50 text-stone-300">
+          <Leaf className="h-5 w-5" />
+        </span>
+      )}
+    </Link>
+  );
+}
 
 const UNIT_LABEL: Record<string, string> = {
   gram: "gam",
@@ -171,6 +191,7 @@ export default async function HerbsPage({
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-stone-200 bg-stone-50 text-left text-xs uppercase text-stone-500">
+                    <th className="px-4 py-3">Ảnh</th>
                     <th className="px-4 py-3">Mã VT</th>
                     <th className="px-4 py-3">Tên vị thuốc</th>
                     <th className="px-4 py-3">Tính vị - Quy kinh</th>
@@ -195,6 +216,9 @@ export default async function HerbsPage({
                         key={h.id}
                         className="border-b border-stone-100 transition-colors last:border-0 hover:bg-stone-50"
                       >
+                        <td className="px-4 py-3">
+                          <HerbThumb id={h.id} imageUrl={h.image_url} name={h.name_common} />
+                        </td>
                         <td className="whitespace-nowrap px-4 py-3 font-medium text-stone-700">
                           {h.code}
                         </td>
@@ -281,8 +305,9 @@ export default async function HerbsPage({
                 return (
                   <Card key={h.id} className="transition-shadow hover:shadow-md">
                     <CardContent className="space-y-1.5 p-4">
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="min-w-0">
+                      <div className="flex items-start gap-3">
+                        <HerbThumb id={h.id} imageUrl={h.image_url} name={h.name_common} />
+                        <div className="min-w-0 flex-1">
                           <Link
                             href={`/herbs/${h.id}`}
                             className="font-semibold text-stone-900 hover:text-emerald-700 hover:underline"

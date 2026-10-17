@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Input } from "@/components/ui/input";
@@ -12,6 +13,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { herbSchema, type HerbInput } from "@/features/herbs/schemas";
 import { z } from "zod";
 import type { ActionState } from "@/features/herbs/actions";
+import { uploadHerbImage } from "@/features/herbs/actions";
 import { cn } from "@/lib/utils";
 
 const TINH_OPTIONS = ["Hàn", "Nhiệt", "Ôn", "Lương", "Bình"];
@@ -28,7 +30,20 @@ interface HerbFormProps {
   submitLabel: string;
   /** true = trang thêm mới (có nút Lưu & Thêm tiếp) */
   allowStay?: boolean;
+  /** true = trang thêm mới: cho chọn ảnh, tạo xong tự upload */
+  enableImage?: boolean;
 }
+
+const IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"];
+const IMAGE_MAX_SIZE = 5 * 1024 * 1024; // 5MB
+
+const EMPTY_VALUES = {
+  name_common: "", name_han_viet: "", name_science: "", used_part: "",
+  property_tinh: "", property_vi: "", quy_kinh: "", cong_nang: "",
+  kieng_ky: "", vi_tri_hoc_tu: "",
+  base_unit: "gram", price_per_unit: undefined,
+  min_stock_quantity: 0, is_valuable: false,
+};
 
 function Chip({
   active,
@@ -55,9 +70,18 @@ function Chip({
   );
 }
 
-export function HerbForm({ action, initial, submitLabel, allowStay }: HerbFormProps) {
+export function HerbForm({ action, initial, submitLabel, allowStay, enableImage }: HerbFormProps) {
+  const router = useRouter();
   const [serverError, setServerError] = useState<string | undefined>();
   const [savedMsg, setSavedMsg] = useState<string | undefined>();
+  // Anh vi thuoc (chi trang Them moi): chon truoc, tao xong tu upload.
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [imageError, setImageError] = useState<string | undefined>();
+  const [createdHerbId, setCreatedHerbId] = useState<string | null>(null);
+  const [createdHerbStay, setCreatedHerbStay] = useState(false);
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const imageFileRef = useRef<HTMLInputElement>(null);
   const {
     register,
     handleSubmit,
@@ -99,9 +123,75 @@ export function HerbForm({ action, initial, submitLabel, allowStay }: HerbFormPr
     setValue(field, next.join(", "), { shouldValidate: true });
   };
 
+  const clearImage = () => {
+    setImageFile(null);
+    setImagePreview(null);
+    setImageError(undefined);
+    setCreatedHerbId(null);
+    if (imageFileRef.current) imageFileRef.current.value = "";
+  };
+
+  const onImageChange = (file: File | undefined) => {
+    setImageError(undefined);
+    setCreatedHerbId(null);
+    if (!file) {
+      setImageFile(null);
+      setImagePreview(null);
+      return;
+    }
+    if (!IMAGE_TYPES.includes(file.type)) {
+      setImageError("Chỉ chấp nhận ảnh JPG, PNG hoặc WebP.");
+      setImageFile(null);
+      setImagePreview(null);
+      return;
+    }
+    if (file.size > IMAGE_MAX_SIZE) {
+      setImageError("Ảnh tối đa 5MB.");
+      setImageFile(null);
+      setImagePreview(null);
+      return;
+    }
+    setImageFile(file);
+    setImagePreview(URL.createObjectURL(file));
+  };
+
+  /** Upload anh cho vi thuoc da tao. Tra ve true neu thanh cong. */
+  const uploadImageFor = async (herbId: string, file: File): Promise<boolean> => {
+    setUploadingImage(true);
+    try {
+      const fd = new FormData();
+      fd.set("image", file);
+      const res = await uploadHerbImage(herbId, fd);
+      if (res.error) {
+        setImageError(res.error);
+        return false;
+      }
+      return true;
+    } finally {
+      setUploadingImage(false);
+    }
+  };
+
+  const retryUpload = async () => {
+    if (!createdHerbId || !imageFile) return;
+    const ok = await uploadImageFor(createdHerbId, imageFile);
+    if (ok) {
+      if (createdHerbStay) {
+        setSavedMsg("Đã lưu vị thuốc kèm ảnh. Nhập tiếp vị thuốc mới.");
+        clearImage();
+        reset(EMPTY_VALUES);
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      } else {
+        router.push(`/herbs/${createdHerbId}`);
+      }
+    }
+  };
+
   const doSubmit = async (values: z.input<typeof herbSchema>, stay: boolean) => {
     setServerError(undefined);
     setSavedMsg(undefined);
+    setImageError(undefined);
+    setCreatedHerbId(null);
     const formData = new FormData();
     for (const [k, v] of Object.entries(values)) {
       if (typeof v === "boolean") {
@@ -110,19 +200,39 @@ export function HerbForm({ action, initial, submitLabel, allowStay }: HerbFormPr
         formData.set(k, String(v));
       }
     }
-    if (stay) formData.set("_stay", "1");
+    // Co anh da chon: dung luong stay de lay id vi moi tao, roi tu upload anh.
+    const withImage = Boolean(enableImage && imageFile);
+    if (stay || withImage) formData.set("_stay", "1");
     const result = await action({}, formData);
     if (result.error) {
       setServerError(result.error);
-    } else if (result.ok && stay) {
+      return;
+    }
+    if (withImage) {
+      const herbId = (result.data as { id?: string } | undefined)?.id;
+      if (!herbId) {
+        setServerError("Đã lưu vị thuốc nhưng không lấy được mã để tải ảnh.");
+        return;
+      }
+      setCreatedHerbId(herbId);
+      setCreatedHerbStay(stay);
+      const ok = await uploadImageFor(herbId, imageFile!);
+      if (ok) {
+        if (stay) {
+          setSavedMsg(`Đã lưu ${result.code} — ${result.name} kèm ảnh. Nhập tiếp vị thuốc mới.`);
+          clearImage();
+          reset(EMPTY_VALUES);
+          window.scrollTo({ top: 0, behavior: "smooth" });
+        } else {
+          router.push(`/herbs/${herbId}`);
+        }
+      }
+      // Upload loi: giu nguyen form + hien box Thu lai (vi thuoc da duoc luu).
+      return;
+    }
+    if (result.ok && stay) {
       setSavedMsg(`Đã lưu ${result.code} — ${result.name}. Nhập tiếp vị thuốc mới.`);
-      reset({
-        name_common: "", name_han_viet: "", name_science: "", used_part: "",
-        property_tinh: "", property_vi: "", quy_kinh: "", cong_nang: "",
-        kieng_ky: "", vi_tri_hoc_tu: "",
-        base_unit: "gram", price_per_unit: undefined,
-        min_stock_quantity: 0, is_valuable: false,
-      });
+      reset(EMPTY_VALUES);
       window.scrollTo({ top: 0, behavior: "smooth" });
     }
     // redirect (không stay) do server action thực hiện
@@ -275,6 +385,38 @@ export function HerbForm({ action, initial, submitLabel, allowStay }: HerbFormPr
               </div>
             </CardContent>
           </Card>
+
+          {enableImage && (
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base">Ảnh vị thuốc</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3 p-4 pt-0 md:p-6 md:pt-0">
+                {imagePreview && (
+                  <div className="relative h-40 w-40 overflow-hidden rounded-md border">
+                    <img
+                      src={imagePreview}
+                      alt="Xem trước ảnh vị thuốc"
+                      className="h-full w-full object-cover"
+                    />
+                  </div>
+                )}
+                <Input
+                  ref={imageFileRef}
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  onChange={(e) => onImageChange(e.target.files?.[0])}
+                />
+                {imageError && !createdHerbId && (
+                  <p className="text-xs font-medium text-red-600">{imageError}</p>
+                )}
+                <p className="text-xs text-stone-500">
+                  Không bắt buộc. JPG / PNG / WebP, tối đa 5MB. Ảnh được tải lên
+                  sau khi lưu vị thuốc.
+                </p>
+              </CardContent>
+            </Card>
+          )}
         </div>
       </div>
 
@@ -285,6 +427,29 @@ export function HerbForm({ action, initial, submitLabel, allowStay }: HerbFormPr
         <p className="mt-4 rounded-lg bg-emerald-50 p-3 text-sm font-medium text-emerald-700">
           {savedMsg}
         </p>
+      )}
+      {createdHerbId && imageError && (
+        <div className="mt-4 rounded-lg border border-red-200 bg-red-50 p-3">
+          <p className="text-sm font-medium text-red-700">
+            Vị thuốc đã được lưu nhưng tải ảnh lên thất bại: {imageError}
+          </p>
+          <div className="mt-2 flex flex-wrap gap-2">
+            <Button
+              type="button"
+              size="sm"
+              onClick={retryUpload}
+              disabled={uploadingImage || !imageFile}
+              className="bg-emerald-800 hover:bg-emerald-900"
+            >
+              {uploadingImage ? "Đang thử lại..." : "Thử lại"}
+            </Button>
+            <Link href={`/herbs/${createdHerbId}`}>
+              <Button type="button" variant="outline" size="sm">
+                Xem vị thuốc
+              </Button>
+            </Link>
+          </div>
+        </div>
       )}
 
       <div className="mt-4 flex flex-wrap justify-end gap-2">

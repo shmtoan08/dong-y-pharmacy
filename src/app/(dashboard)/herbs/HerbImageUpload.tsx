@@ -5,7 +5,16 @@ import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { uploadHerbImage } from "@/features/herbs/actions";
+import { uploadHerbImage, deleteHerbImage } from "@/features/herbs/actions";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { AlertTriangle } from "lucide-react";
 
 const ACCEPTED_TYPES = ["image/jpeg", "image/png", "image/webp"];
 const MAX_SIZE = 5 * 1024 * 1024; // 5MB
@@ -22,6 +31,8 @@ export function HerbImageUpload({
   const [preview, setPreview] = useState<string | null>(null);
   const [error, setError] = useState<string | undefined>();
   const [uploading, setUploading] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const onFileChange = (file: File | undefined) => {
@@ -41,6 +52,23 @@ export function HerbImageUpload({
       return;
     }
     setPreview(URL.createObjectURL(file));
+  };
+
+  const onDelete = async () => {
+    setDeleting(true);
+    setError(undefined);
+    try {
+      const result = await deleteHerbImage(herbId);
+      if (result.error) {
+        setError(result.error);
+      } else {
+        setImageUrl(null);
+        setPreview(null);
+        setConfirmDelete(false);
+      }
+    } finally {
+      setDeleting(false);
+    }
   };
 
   const onUpload = async () => {
@@ -97,12 +125,53 @@ export function HerbImageUpload({
           >
             {uploading ? "Đang tải lên..." : "Tải ảnh lên"}
           </Button>
+          {imageUrl && (
+            <Button
+              type="button"
+              variant="outline"
+              disabled={uploading || deleting}
+              onClick={() => setConfirmDelete(true)}
+              className="border-red-300 text-red-700 hover:bg-red-50"
+            >
+              Xóa ảnh
+            </Button>
+          )}
         </div>
         {error && <p className="text-xs font-medium text-red-600">{error}</p>}
         <p className="text-xs text-stone-500">
           JPG / PNG / WebP, tối đa 5MB. Upload lại sẽ ghi đè ảnh cũ.
         </p>
       </CardContent>
+      <Dialog open={confirmDelete} onOpenChange={setConfirmDelete}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-red-600" /> Xóa ảnh vị thuốc
+            </DialogTitle>
+            <DialogDescription>
+              Ảnh sẽ bị xóa khỏi hệ thống. Bạn có chắc muốn xóa ảnh này không?
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              disabled={deleting}
+              onClick={() => setConfirmDelete(false)}
+            >
+              Hủy
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              disabled={deleting}
+              onClick={onDelete}
+            >
+              {deleting ? "Đang xóa..." : "Xóa"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 }
