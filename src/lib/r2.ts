@@ -1,9 +1,11 @@
-import { S3Client, PutObjectCommand, DeleteObjectCommand } from "@aws-sdk/client-s3";
-
 /**
- * Cloudflare R2 client (S3-compatible API).
+ * Cloudflare R2 client (S3-compatible API) — CHI WEB API THUAN (fetch + WebCrypto).
+ * KHONG dung @aws-sdk/client-s3: SDK keo theo node:fs (credential/config providers)
+ * -> tren Cloudflare Workers bi loi "[unenv] fs.readFile is not implemented yet!"
+ * (tren VM Node thi chay duoc, nen loi chi xuat hien o production).
+ *
  * Env vars: R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET, R2_PUBLIC_URL.
- * R2_PUBLIC_URL là URL công khai của bucket (https://pub-xxx.r2.dev).
+ * R2_PUBLIC_URL la URL cong khai cua bucket (https://pub-xxx.r2.dev).
  */
 
 function requireEnv(name: string): string {
@@ -12,50 +14,163 @@ function requireEnv(name: string): string {
   return v;
 }
 
-let client: S3Client | null = null;
-
-export function getR2Client(): S3Client {
-  if (!client) {
-    client = new S3Client({
-      region: "auto",
-      endpoint: `https://${requireEnv("R2_ACCOUNT_ID")}.r2.cloudflarestorage.com`,
-      credentials: {
-        accessKeyId: requireEnv("R2_ACCESS_KEY_ID"),
-        secretAccessKey: requireEnv("R2_SECRET_ACCESS_KEY"),
-      },
-    });
-  }
-  return client;
-}
-
-export function getR2Bucket(): string {
+function getR2Bucket(): string {
   return requireEnv("R2_BUCKET");
 }
 
-export function getR2PublicUrl(): string {
+function getR2PublicUrl(): string {
   return requireEnv("R2_PUBLIC_URL").replace(/\/$/, "");
 }
 
 /** Key ảnh vị thuốc: herbs/<canonical_key> (không đuôi — ghi đè khi upload lại, tránh file mồ côi). */
+export function herbImageKey(canonicalKey: string): string {
+  return `herbs/${canonicalKey}`;
+}
+
+export function herbImageUrl(canonicalKey: string): string {
+  return `${getR2PublicUrl()}/${herbImageKey(canonicalKey)}`;
+}
+
+// ---------- SigV4 (S3) — WebCrypto, chay duoc ca Workers lan Node ----------
+
+const textEncoder = new TextEncoder();
+
+function getSubtle(): SubtleCrypto {
+  const subtle = globalThis.crypto?.subtle;
+  if (!subtle) throw new Error("WebCrypto không khả dụng trong runtime này.");
+  return subtle;
+}
+
+async function sha256Hex(data: Uint8Array | string): Promise<string> {
+  const buf = typeof data === "string" ? textEncoder.encode(data) : data;
+  const hash = await getSubtle().digest("SHA-256", buf as BufferSource);
+  return toHex(new Uint8Array(hash));
+}
+
+async function hmac(key: Uint8Array | string, data: string): Promise<Uint8Array> {
+  const k = typeof key === "string" ? textEncoder.encode(key) : key;
+  const cryptoKey = await getSubtle().importKey(
+    "raw",
+    k as BufferSource,
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"],
+  );
+  const sig = await getSubtle().sign("HMAC", cryptoKey, textEncoder.encode(data));
+  return new Uint8Array(sig);
+}
+
+function toHex(bytes: Uint8Array): string {
+  return Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+function amzDate(d: Date): { date: string; datetime: string } {
+  const p = (n: number) => String(n).padStart(2, "0");
+  const date = `${d.getUTCFullYear()}${p(d.getUTCMonth() + 1)}${p(d.getUTCDate())}`;
+  const datetime = `${date}T${p(d.getUTCHours())}${p(d.getUTCMinutes())}${p(d.getUTCSeconds())}Z`;
+  return { date, datetime };
+}
+
 /**
- * Xoa object tren R2. Object da khong ton tai -> coi nhu thanh cong (idempotent).
- * Loi khac (timeout, quyen, ...) -> throw de caller giu nguyen image_url va cho thu lai.
+ * Gui request da ky SigV4 toi R2. Tra ve Response (caller kiem tra .ok).
+ * Luu y: header `host` chi co trong canonical request de ky — fetch tu dat Host tu URL,
+ * khong set thu cong (fetch cam header `host`).
  */
-export async function deleteFromR2(key: string): Promise<void> {
-  try {
-    await getR2Client().send(
-      new DeleteObjectCommand({ Bucket: getR2Bucket(), Key: key }),
-    );
-  } catch (e) {
-    const name = e instanceof Error ? e.name : "";
-    if (name === "NoSuchKey" || name === "NotFound") return;
-    throw e;
+async function signedR2Request(
+  method: "PUT" | "DELETE",
+  key: string,
+  body: Uint8Array | undefined,
+  contentType: string | undefined,
+  extraHeaders: Record<string, string>,
+): Promise<Response> {
+  const bucket = getR2Bucket();
+  const accountId = requireEnv("R2_ACCOUNT_ID");
+  const accessKey = requireEnv("R2_ACCESS_KEY_ID");
+  const secretKey = requireEnv("R2_SECRET_ACCESS_KEY");
+  const host = `${accountId}.r2.cloudflarestorage.com`;
+  const encodedKey = key.split("/").map(encodeURIComponent).join("/");
+  const url = `https://${host}/${bucket}/${encodedKey}`;
+  const { date, datetime } = amzDate(new Date());
+  const payloadHash = await sha256Hex(body ?? new Uint8Array(0));
+
+  const signHeaders: Record<string, string> = {
+    host,
+    "x-amz-content-sha256": payloadHash,
+    "x-amz-date": datetime,
+    ...extraHeaders,
+  };
+  if (contentType) signHeaders["content-type"] = contentType;
+  const signedNames = Object.keys(signHeaders).sort();
+  const canonicalHeaders = signedNames
+    .map((n) => `${n}:${signHeaders[n].trim()}\n`)
+    .join("");
+  const canonicalRequest = [
+    method,
+    `/${bucket}/${encodedKey}`,
+    "",
+    canonicalHeaders,
+    signedNames.join(";"),
+    payloadHash,
+  ].join("\n");
+
+  const scope = `${date}/auto/s3/aws4_request`;
+  const stringToSign = [
+    "AWS4-HMAC-SHA256",
+    datetime,
+    scope,
+    await sha256Hex(canonicalRequest),
+  ].join("\n");
+  const kDate = await hmac(`AWS4${secretKey}`, date);
+  const kRegion = await hmac(kDate, "auto");
+  const kService = await hmac(kRegion, "s3");
+  const kSigning = await hmac(kService, "aws4_request");
+  const signature = toHex(await hmac(kSigning, stringToSign));
+
+  const fetchHeaders: Record<string, string> = {
+    "x-amz-content-sha256": payloadHash,
+    "x-amz-date": datetime,
+    ...extraHeaders,
+    Authorization: `AWS4-HMAC-SHA256 Credential=${accessKey}/${scope}, SignedHeaders=${signedNames.join(";")}, Signature=${signature}`,
+  };
+  if (contentType) fetchHeaders["content-type"] = contentType;
+
+  return fetch(url, {
+    method,
+    headers: fetchHeaders,
+    body: body as BodyInit | undefined,
+  });
+}
+
+export async function uploadToR2(
+  key: string,
+  body: Uint8Array,
+  contentType: string,
+): Promise<void> {
+  const res = await signedR2Request("PUT", key, body, contentType, {
+    // Cache ngan (5 phut) de anh moi upload hien nhanh, tranh cache cu cua key ghi de.
+    "cache-control": "public, max-age=300",
+  });
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    throw new Error(`Upload R2 thất bại (${res.status}) ${text}`.trim());
   }
 }
 
 /**
- * Nhan dien loai anh tu magic bytes (khong tin MIME do client gui).
- * Tra ve MIME that hoac null neu khong phai JPG/PNG/WebP.
+ * Xóa object trên R2. Object đã không tồn tại → coi như thành công (idempotent).
+ * Lỗi khác (timeout, quyền, ...) → throw để caller giữ nguyên image_url và cho thử lại.
+ */
+export async function deleteFromR2(key: string): Promise<void> {
+  const res = await signedR2Request("DELETE", key, undefined, undefined, {});
+  // S3 DELETE idempotent: key khong ton tai van tra 204. 404 (neu co) cung coi nhu thanh cong.
+  if (res.ok || res.status === 404) return;
+  const text = await res.text().catch(() => "");
+  throw new Error(`Xóa R2 thất bại (${res.status}) ${text}`.trim());
+}
+
+/**
+ * Nhận diện loại ảnh từ magic bytes (không tin MIME do client gửi).
+ * Trả về MIME thật hoặc null nếu không phải JPG/PNG/WebP.
  */
 export function detectImageType(bytes: Uint8Array): string | null {
   if (
@@ -90,29 +205,4 @@ export function detectImageType(bytes: Uint8Array): string | null {
   )
     return "image/webp";
   return null;
-}
-
-export function herbImageKey(canonicalKey: string): string {
-  return `herbs/${canonicalKey}`;
-}
-
-export function herbImageUrl(canonicalKey: string): string {
-  return `${getR2PublicUrl()}/${herbImageKey(canonicalKey)}`;
-}
-
-export async function uploadToR2(
-  key: string,
-  body: Uint8Array,
-  contentType: string,
-): Promise<void> {
-  await getR2Client().send(
-    new PutObjectCommand({
-      Bucket: getR2Bucket(),
-      Key: key,
-      Body: body,
-      ContentType: contentType,
-      // Cache ngan (5 phut) de anh moi upload hien nhanh, tranh cache cu cua key ghi de.
-      CacheControl: "public, max-age=300",
-    }),
-  );
 }
