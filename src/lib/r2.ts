@@ -22,13 +22,21 @@ function getR2PublicUrl(): string {
   return requireEnv("R2_PUBLIC_URL").replace(/\/$/, "");
 }
 
-/** Key ảnh vị thuốc: herbs/<canonical_key> (không đuôi — ghi đè khi upload lại, tránh file mồ côi). */
-export function herbImageKey(canonicalKey: string): string {
-  return `herbs/${canonicalKey}`;
+/** Key anh vi thuoc: herbs/<canonical_key>/<image_id> — MOI ANH 1 KEY RIENG.
+ * (Truoc day dung chung key herbs/<canonical_key> nen upload lai van giu nguyen URL,
+ * trinh duyet/CDN tra cache cu -> anh moi khong hien. Key rieng thi URL moi -> het loi cache.)
+ * Anh cu (truoc khi co bang herb_images) dung key herbs/<canonical_key> — luu trong cot r2_key. */
+export function herbImageKey(canonicalKey: string, imageId: string): string {
+  return `herbs/${canonicalKey}/${imageId}`;
 }
 
-export function herbImageUrl(canonicalKey: string): string {
-  return `${getR2PublicUrl()}/${herbImageKey(canonicalKey)}`;
+export function herbImageUrl(canonicalKey: string, imageId: string): string {
+  return `${getR2PublicUrl()}/${herbImageKey(canonicalKey, imageId)}`;
+}
+
+/** Key anh cu (dang don, truoc khi co bang herb_images) — dung khi migrate/xoa anh legacy. */
+export function legacyHerbImageKey(canonicalKey: string): string {
+  return `herbs/${canonicalKey}`;
 }
 
 // ---------- SigV4 (S3) — WebCrypto, chay duoc ca Workers lan Node ----------

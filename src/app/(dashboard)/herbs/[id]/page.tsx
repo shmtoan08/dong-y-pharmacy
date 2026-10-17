@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireRole, getSessionUser } from "@/lib/auth";
 import { toggleHerbActive, removeAlias } from "@/features/herbs/actions";
-import { getHerb } from "@/features/herbs/queries";
+import { getHerb, getHerbImages } from "@/features/herbs/queries";
 import { BackButton } from "@/components/shared/BackButton";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -48,6 +48,7 @@ export default async function HerbDetailPage({
   const canManageDose = user.role === "admin" || user.role === "practitioner";
   const herb = await getHerb(id);
   if (!herb) notFound();
+  const images = await getHerbImages(id);
 
   const canEdit = user.role === "admin" || user.role === "practitioner";
   const medicineType = herb.medicine_type;
@@ -69,7 +70,7 @@ export default async function HerbDetailPage({
       <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
           <HerbImageView
-            imageUrl={herb.image_url ?? null}
+            images={images}
             herbName={herb.name_common}
             herbId={id}
             canEdit={canEdit}

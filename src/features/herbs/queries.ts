@@ -38,6 +38,16 @@ export interface HerbAlias {
 
 export type HerbDetail = Herb & { aliases: HerbAlias[] };
 
+export interface HerbImage {
+  id: string;
+  herb_id: string;
+  image_url: string;
+  r2_key: string;
+  sort_order: number;
+  is_primary: boolean;
+  created_at: string;
+}
+
 export interface HerbRow {
   id: string;
   code: string;
@@ -268,6 +278,45 @@ export async function getHerb(
     [id],
   );
   return { ...rows[0], aliases };
+}
+
+/**
+ * Lay gallery anh cua vi thuoc, dai dien truoc, roi theo thu tu.
+ * - Neu bang herb_images chua co (production chua ap dung migration) -> tra [] de trang khong crash.
+ * - Neu chua co row nao nhung herbs.image_url co (anh cron / anh cu) -> tra 1 row ao "legacy"
+ *   dai dien cho anh do (key cu herbs/<canonical_key>), de UI hien duoc anh ma khong can migrate ngay.
+ */
+export async function getHerbImages(herbId: string): Promise<HerbImage[]> {
+  await requireRole("admin", "practitioner", "dispenser");
+  try {
+    const { rows } = await db.query<HerbImage>(
+      `SELECT id, herb_id, image_url, r2_key, sort_order, is_primary, created_at
+       FROM herb_images WHERE herb_id = $1 ORDER BY is_primary DESC, sort_order ASC`,
+      [herbId],
+    );
+    if (rows.length > 0) return rows;
+  } catch (e) {
+    // Bang chua ton tai (42P01) -> roi xuong fallback legacy ben duoi, khong crash trang.
+    const code = (e as { code?: string })?.code;
+    if (code !== "42P01") throw e;
+  }
+  const { rows: herbRows } = await db.query<{
+    image_url: string | null;
+    canonical_key: string;
+  }>(`SELECT image_url, canonical_key FROM herbs WHERE id = $1`, [herbId]);
+  const h = herbRows[0];
+  if (!h?.image_url) return [];
+  return [
+    {
+      id: "legacy",
+      herb_id: herbId,
+      image_url: h.image_url,
+      r2_key: `herbs/${h.canonical_key}`,
+      sort_order: 0,
+      is_primary: true,
+      created_at: "",
+    },
+  ];
 }
 
 /**

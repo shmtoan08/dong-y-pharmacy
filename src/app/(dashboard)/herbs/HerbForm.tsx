@@ -13,7 +13,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { herbSchema, type HerbInput } from "@/features/herbs/schemas";
 import { z } from "zod";
 import type { ActionState } from "@/features/herbs/actions";
-import { uploadHerbImage } from "@/features/herbs/actions";
+import { uploadHerbImages } from "@/features/herbs/actions";
 import { cn } from "@/lib/utils";
 
 const TINH_OPTIONS = ["Hàn", "Nhiệt", "Ôn", "Lương", "Bình"];
@@ -74,9 +74,9 @@ export function HerbForm({ action, initial, submitLabel, allowStay, enableImage 
   const router = useRouter();
   const [serverError, setServerError] = useState<string | undefined>();
   const [savedMsg, setSavedMsg] = useState<string | undefined>();
-  // Anh vi thuoc (chi trang Them moi): chon truoc, tao xong tu upload.
-  const [imageFile, setImageFile] = useState<File | null>(null);
-  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  // Anh vi thuoc (chi trang Them moi): chon truoc (toi da 5), tao xong tu upload.
+  const [imageFiles, setImageFiles] = useState<File[]>([]);
+  const [imagePreviews, setImagePreviews] = useState<string[]>([]);
   const [imageError, setImageError] = useState<string | undefined>();
   const [createdHerbId, setCreatedHerbId] = useState<string | null>(null);
   const [createdHerbStay, setCreatedHerbStay] = useState(false);
@@ -123,45 +123,52 @@ export function HerbForm({ action, initial, submitLabel, allowStay, enableImage 
     setValue(field, next.join(", "), { shouldValidate: true });
   };
 
-  const clearImage = () => {
-    setImageFile(null);
-    setImagePreview(null);
+  const clearImages = () => {
+    setImageFiles([]);
+    setImagePreviews([]);
     setImageError(undefined);
     setCreatedHerbId(null);
     if (imageFileRef.current) imageFileRef.current.value = "";
   };
 
-  const onImageChange = (file: File | undefined) => {
+  const onImagesChange = (files: FileList | null) => {
     setImageError(undefined);
     setCreatedHerbId(null);
-    if (!file) {
-      setImageFile(null);
-      setImagePreview(null);
+    if (!files) return;
+    const picked = Array.from(files);
+    for (const f of picked) {
+      if (!IMAGE_TYPES.includes(f.type)) {
+        setImageError(`File "${f.name}" không phải JPG/PNG/WebP.`);
+        return;
+      }
+      if (f.size > IMAGE_MAX_SIZE) {
+        setImageError(`File "${f.name}" vượt quá 5MB.`);
+        return;
+      }
+    }
+    if (imageFiles.length + picked.length > 5) {
+      setImageError(`Tối đa 5 ảnh / vị thuốc (đã chọn ${imageFiles.length}).`);
       return;
     }
-    if (!IMAGE_TYPES.includes(file.type)) {
-      setImageError("Chỉ chấp nhận ảnh JPG, PNG hoặc WebP.");
-      setImageFile(null);
-      setImagePreview(null);
-      return;
-    }
-    if (file.size > IMAGE_MAX_SIZE) {
-      setImageError("Ảnh tối đa 5MB.");
-      setImageFile(null);
-      setImagePreview(null);
-      return;
-    }
-    setImageFile(file);
-    setImagePreview(URL.createObjectURL(file));
+    setImageFiles((prev) => [...prev, ...picked]);
+    setImagePreviews((prev) => [
+      ...prev,
+      ...picked.map((f) => URL.createObjectURL(f)),
+    ]);
   };
 
-  /** Upload anh cho vi thuoc da tao. Tra ve true neu thanh cong. */
-  const uploadImageFor = async (herbId: string, file: File): Promise<boolean> => {
+  const removeImageAt = (index: number) => {
+    setImageFiles((prev) => prev.filter((_, i) => i !== index));
+    setImagePreviews((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  /** Upload tat ca anh da chon cho vi thuoc vua tao. Tra ve true neu thanh cong. */
+  const uploadImagesFor = async (herbId: string, files: File[]): Promise<boolean> => {
     setUploadingImage(true);
     try {
       const fd = new FormData();
-      fd.set("image", file);
-      const res = await uploadHerbImage(herbId, fd);
+      for (const f of files) fd.append("images", f);
+      const res = await uploadHerbImages(herbId, fd);
       if (res.error) {
         setImageError(res.error);
         return false;
@@ -173,12 +180,12 @@ export function HerbForm({ action, initial, submitLabel, allowStay, enableImage 
   };
 
   const retryUpload = async () => {
-    if (!createdHerbId || !imageFile) return;
-    const ok = await uploadImageFor(createdHerbId, imageFile);
+    if (!createdHerbId || imageFiles.length === 0) return;
+    const ok = await uploadImagesFor(createdHerbId, imageFiles);
     if (ok) {
       if (createdHerbStay) {
         setSavedMsg("Đã lưu vị thuốc kèm ảnh. Nhập tiếp vị thuốc mới.");
-        clearImage();
+        clearImages();
         reset(EMPTY_VALUES);
         window.scrollTo({ top: 0, behavior: "smooth" });
       } else {
@@ -201,7 +208,7 @@ export function HerbForm({ action, initial, submitLabel, allowStay, enableImage 
       }
     }
     // Co anh da chon: dung luong stay de lay id vi moi tao, roi tu upload anh.
-    const withImage = Boolean(enableImage && imageFile);
+    const withImage = Boolean(enableImage && imageFiles.length > 0);
     if (stay || withImage) formData.set("_stay", "1");
     const result = await action({}, formData);
     if (result.error) {
@@ -216,11 +223,11 @@ export function HerbForm({ action, initial, submitLabel, allowStay, enableImage 
       }
       setCreatedHerbId(herbId);
       setCreatedHerbStay(stay);
-      const ok = await uploadImageFor(herbId, imageFile!);
+      const ok = await uploadImagesFor(herbId, imageFiles);
       if (ok) {
         if (stay) {
           setSavedMsg(`Đã lưu ${result.code} — ${result.name} kèm ảnh. Nhập tiếp vị thuốc mới.`);
-          clearImage();
+          clearImages();
           reset(EMPTY_VALUES);
           window.scrollTo({ top: 0, behavior: "smooth" });
         } else {
@@ -392,27 +399,46 @@ export function HerbForm({ action, initial, submitLabel, allowStay, enableImage 
                 <CardTitle className="text-base">Ảnh vị thuốc</CardTitle>
               </CardHeader>
               <CardContent className="space-y-3 p-4 pt-0 md:p-6 md:pt-0">
-                {imagePreview && (
-                  <div className="relative h-40 w-40 overflow-hidden rounded-md border">
-                    <img
-                      src={imagePreview}
-                      alt="Xem trước ảnh vị thuốc"
-                      className="h-full w-full object-cover"
-                    />
+                {imagePreviews.length > 0 && (
+                  <div className="flex flex-wrap gap-2">
+                    {imagePreviews.map((src, i) => (
+                      <div key={i} className="relative">
+                        <img
+                          src={src}
+                          alt="Xem trước ảnh vị thuốc"
+                          className="h-20 w-20 rounded-md border object-cover"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => removeImageAt(i)}
+                          aria-label="Bỏ ảnh này"
+                          className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-red-600 text-xs font-bold text-white"
+                        >
+                          ×
+                        </button>
+                        {i === 0 && (
+                          <span className="absolute bottom-1 left-1 rounded bg-amber-500 px-1 py-0.5 text-[10px] font-semibold text-white">
+                            Đại diện
+                          </span>
+                        )}
+                      </div>
+                    ))}
                   </div>
                 )}
                 <Input
                   ref={imageFileRef}
                   type="file"
                   accept="image/jpeg,image/png,image/webp"
-                  onChange={(e) => onImageChange(e.target.files?.[0])}
+                  multiple
+                  onChange={(e) => onImagesChange(e.target.files)}
                 />
                 {imageError && !createdHerbId && (
                   <p className="text-xs font-medium text-red-600">{imageError}</p>
                 )}
                 <p className="text-xs text-stone-500">
-                  Không bắt buộc. JPG / PNG / WebP, tối đa 5MB. Ảnh được tải lên
-                  sau khi lưu vị thuốc.
+                  Không bắt buộc. JPG / PNG / WebP, mỗi ảnh tối đa 5MB, tối đa 5
+                  ảnh / vị thuốc. Ảnh đầu tiên làm ảnh đại diện. Ảnh được tải
+                  lên sau khi lưu vị thuốc.
                 </p>
               </CardContent>
             </Card>
@@ -438,7 +464,7 @@ export function HerbForm({ action, initial, submitLabel, allowStay, enableImage 
               type="button"
               size="sm"
               onClick={retryUpload}
-              disabled={uploadingImage || !imageFile}
+              disabled={uploadingImage || imageFiles.length === 0}
               className="bg-emerald-800 hover:bg-emerald-900"
             >
               {uploadingImage ? "Đang thử lại..." : "Thử lại"}
