@@ -1,7 +1,7 @@
 import { requireUser } from "@/lib/auth";
 import { AppShell } from "@/components/shared/AppShell";
 import { getUserPermissions } from "@/lib/getUserPermissions";
-import { getSettings } from "@/features/admin/settings";
+import { getClinicBranding } from "@/features/admin/settings";
 
 export default async function DashboardLayout({
   children,
@@ -10,14 +10,14 @@ export default async function DashboardLayout({
 }) {
   const user = await requireUser();
   const permissions = await getUserPermissions();
-  const settings = await getSettings();
+  const branding = await getClinicBranding();
 
   return (
     <AppShell
       user={user}
       permissions={permissions}
-      clinicName={settings.clinic_name}
-      clinicLogoUrl={settings.clinic_logo_url}
+      clinicName={branding.clinic_name}
+      clinicLogoUrl={branding.clinic_logo_url}
     >
       {children}
     </AppShell>
