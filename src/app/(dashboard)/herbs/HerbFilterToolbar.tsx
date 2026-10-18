@@ -30,6 +30,11 @@ const STOCK_FILTERS = [
   { value: "out", label: "Hết hàng" },
 ];
 
+const SORT_OPTIONS = [
+  { value: "code", label: "Sắp xếp: Theo mã" },
+  { value: "updated", label: "Sắp xếp: Mới cập nhật" },
+];
+
 const TYPE_FILTERS = [
   { value: "bac", label: "Thuốc Bắc" },
   { value: "nam", label: "Thuốc Nam" },
@@ -45,6 +50,7 @@ export function HerbFilterToolbar({
   initialStock,
   initialType,
   initialGroup,
+  initialSort,
   quyKinhOptions,
   groupOptions,
 }: {
@@ -54,6 +60,7 @@ export function HerbFilterToolbar({
   initialStock: string;
   initialType: string;
   initialGroup: string;
+  initialSort: string;
   quyKinhOptions: string[];
   groupOptions: { id: string; name: string }[];
 }) {
@@ -67,7 +74,7 @@ export function HerbFilterToolbar({
     setQ(searchParams.get("q") ?? "");
   }, [searchParams]);
 
-  const apply = (next: { q?: string; tinh?: string; quyKinh?: string; stock?: string; type?: string; group?: string }) => {
+  const apply = (next: { q?: string; tinh?: string; quyKinh?: string; stock?: string; type?: string; group?: string; sort?: string }) => {
     const params = new URLSearchParams(searchParams.toString());
     if (next.q !== undefined) {
       if (next.q.trim()) params.set("q", next.q.trim());
@@ -80,6 +87,10 @@ export function HerbFilterToolbar({
     if (next.group !== undefined) {
       if (next.group === "all") params.delete("group");
       else params.set("group", next.group);
+    }
+    if (next.sort !== undefined) {
+      if (next.sort === "code") params.delete("sort");
+      else params.set("sort", next.sort);
     }
     params.set("page", "1");
     router.push(`/herbs?${params.toString()}`);
@@ -170,6 +181,18 @@ export function HerbFilterToolbar({
             {quyKinhOptions.map((k) => (
               <SelectItem key={k} value={k}>
                 {k}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Select value={initialSort} onValueChange={(v) => apply({ sort: v })}>
+          <SelectTrigger className="w-44">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {SORT_OPTIONS.map((s) => (
+              <SelectItem key={s.value} value={s.value}>
+                {s.label}
               </SelectItem>
             ))}
           </SelectContent>

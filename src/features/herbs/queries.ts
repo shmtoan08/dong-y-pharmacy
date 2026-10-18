@@ -64,6 +64,7 @@ export interface HerbRow {
   min_stock_quantity: number;
   is_active: boolean;
   image_url: string | null;
+  updated_at: string | null;
 }
 
 export interface HerbsFilterParams {
@@ -73,6 +74,7 @@ export interface HerbsFilterParams {
   stock?: string;
   type?: string;
   group?: string;
+  sort?: string;
   page?: number;
   pageSize?: number;
 }
@@ -141,6 +143,10 @@ export async function getHerbsList(
     ? params.type!
     : "bac";
   const groupFilter = params.group ?? "all";
+  // Sắp xếp: whitelist để chống SQL injection (ORDER BY không bind param được)
+  const sortFilter = params.sort === "updated" ? "updated" : "code";
+  const orderBy =
+    sortFilter === "updated" ? "h.updated_at DESC NULLS LAST, h.code" : "h.code";
 
   const rawSize = params.pageSize ? Number(params.pageSize) : 10;
   const pageSize = PAGE_SIZES.includes(rawSize) ? rawSize : 10;
@@ -207,10 +213,10 @@ export async function getHerbsList(
   const { rows } = await db.query<HerbRow>(
     `SELECT h.id, h.code, h.name_common, h.name_han_viet, h.name_science,
             h.property_tinh, h.property_vi, h.quy_kinh, h.base_unit,
-            h.price_per_unit, COALESCE((SELECT SUM(l.quantity_current) FROM stock_lots l WHERE l.herb_id = h.id), 0) AS stock_quantity, h.min_stock_quantity, h.is_active, h.image_url
+            h.price_per_unit, COALESCE((SELECT SUM(l.quantity_current) FROM stock_lots l WHERE l.herb_id = h.id), 0) AS stock_quantity, h.min_stock_quantity, h.is_active, h.image_url, h.updated_at
      FROM herbs h
      ${whereSql}
-     ORDER BY h.code
+     ORDER BY ${orderBy}
      LIMIT $${i} OFFSET $${i + 1}`,
     [...queryParams, pageSize, offset],
   );
