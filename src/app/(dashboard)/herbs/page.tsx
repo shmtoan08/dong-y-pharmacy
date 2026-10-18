@@ -55,6 +55,15 @@ function formatQty(qty: number, unit: string): string {
   return `${qty.toLocaleString("vi-VN")} ${u}`;
 }
 
+function formatUpdatedAt(iso: string | null): string | null {
+  if (!iso) return null;
+  return new Date(iso).toLocaleDateString("vi-VN", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  });
+}
+
 function stockStatus(stock: number, minStock: number): {
   label: string;
   className: string;
@@ -85,6 +94,7 @@ export default async function HerbsPage({
     stock?: string;
     type?: string;
     group?: string;
+    sort?: string;
     page?: string;
     size?: string;
   }>;
@@ -101,6 +111,7 @@ export default async function HerbsPage({
     ? sp.type!
     : "bac";
   const groupFilter = sp.group ?? "all";
+  const sortFilter = sp.sort === "updated" ? "updated" : "code";
 
   const [{ quyKinhOptions, groupOptions }, { rows, total, totalPages, safePage, offset, pageSize }] =
     await Promise.all([
@@ -112,6 +123,7 @@ export default async function HerbsPage({
         stock: sp.stock,
         type: sp.type,
         group: sp.group,
+        sort: sp.sort,
         page: sp.page ? Number(sp.page) : undefined,
         pageSize: sp.size ? Number(sp.size) : undefined,
       }),
@@ -125,6 +137,7 @@ export default async function HerbsPage({
       stock: stockFilter,
       type: typeFilter,
       group: groupFilter,
+      sort: sortFilter,
       page: String(safePage),
       size: String(pageSize),
       ...overrides,
@@ -135,7 +148,8 @@ export default async function HerbsPage({
         !(k === "tinh" && v === "all") &&
         !(k === "quykinh" && v === "all") &&
         !(k === "stock" && v === "all") &&
-        !(k === "group" && v === "all"),
+        !(k === "group" && v === "all") &&
+        !(k === "sort" && v === "code"),
     );
     return all.length
       ? `/herbs?${all.map(([k, v]) => `${k}=${encodeURIComponent(v)}`).join("&")}`
@@ -174,6 +188,7 @@ export default async function HerbsPage({
           initialStock={stockFilter}
           initialType={typeFilter}
           initialGroup={groupFilter}
+          initialSort={sortFilter}
           quyKinhOptions={quyKinhOptions}
           groupOptions={groupOptions}
         />
@@ -234,6 +249,11 @@ export default async function HerbsPage({
                               {[h.name_science, h.name_han_viet]
                                 .filter(Boolean)
                                 .join(" · ")}
+                            </p>
+                          )}
+                          {sortFilter === "updated" && formatUpdatedAt(h.updated_at) && (
+                            <p className="text-xs text-stone-400">
+                              Cập nhật: {formatUpdatedAt(h.updated_at)}
                             </p>
                           )}
                         </td>
@@ -315,6 +335,11 @@ export default async function HerbsPage({
                             {h.name_common}
                           </Link>
                           <p className="text-xs text-stone-500">{h.code}</p>
+                          {sortFilter === "updated" && formatUpdatedAt(h.updated_at) && (
+                            <p className="text-xs text-stone-400">
+                              Cập nhật: {formatUpdatedAt(h.updated_at)}
+                            </p>
+                          )}
                         </div>
                         <Badge className={`${st.className} shrink-0`}>
                           {st.label}
