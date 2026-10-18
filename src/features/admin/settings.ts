@@ -76,6 +76,25 @@ export async function getSettings(): Promise<ClinicSettings> {
   return result as ClinicSettings;
 }
 
+/**
+ * Tên + logo phòng khám cho AppShell/Sidebar — mọi user đã đăng nhập đều xem được.
+ * KHÔNG requireRole("admin") như getSettings(): layout dashboard gọi mỗi request,
+ * giữ requireRole sẽ khiến user không phải admin bị redirect("/") vòng lặp vô hạn.
+ */
+export async function getClinicBranding(): Promise<{
+  clinic_name: string;
+  clinic_logo_url: string;
+}> {
+  const { rows } = await db.query<{ key: string; value: string }>(
+    `SELECT key, value FROM system_settings WHERE key IN ('clinic_name', 'clinic_logo_url')`,
+  );
+  const map = new Map(rows.map((r) => [r.key, r.value ?? ""]));
+  return {
+    clinic_name: map.get("clinic_name") || DEFAULTS.clinic_name,
+    clinic_logo_url: map.get("clinic_logo_url") || "",
+  };
+}
+
 export async function updateSettings(
   data: Partial<ClinicSettings>
 ): Promise<{ error?: string }> {

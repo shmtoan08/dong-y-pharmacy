@@ -28,12 +28,27 @@ export async function requirePermission(key: PermissionKey) {
   return u;
 }
 
-/** Lấy tất cả quyền của 1 role (cho UI ma trận) */
+/**
+ * Lấy tất cả quyền của 1 role (cho UI ma trận) — GỘP thành 1 query duy nhất.
+ * Bản cũ loop 29 query NỐI TIẾP (mỗi query = 1 pg.Client mới + TLS connect qua
+ * Hyperdrive). Layout dashboard gọi hàm này MỖI request → user không phải admin
+ * làm Worker vượt giới hạn tài nguyên (Error 1102) trên mọi trang sau đăng nhập.
+ */
 export async function getRolePermissions(role: string): Promise<Record<string, boolean>> {
   const { PERMISSIONS } = await import("./permissions");
+  if (role === "admin") {
+    return Object.fromEntries(PERMISSIONS.map((p) => [p.key, true]));
+  }
+  const { rows } = await db.query<{ permission: string; granted: boolean }>(
+    `SELECT permission, granted FROM role_permissions WHERE role = $1`,
+    [role],
+  );
+  const granted = new Map(rows.map((r) => [r.permission, r.granted]));
+  const defaults = DEFAULT_PERMISSIONS[role] ?? [];
   const result: Record<string, boolean> = {};
   for (const p of PERMISSIONS) {
-    result[p.key] = await hasPermission(role, p.key);
+    // Chưa cấu hình trong DB → dùng quyền mặc định (giữ nguyên semantics của hasPermission)
+    result[p.key] = granted.has(p.key) ? (granted.get(p.key) as boolean) : defaults.includes(p.key);
   }
   return result;
 }
