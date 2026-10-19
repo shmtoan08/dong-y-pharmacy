@@ -146,18 +146,20 @@ export function Sidebar({
     return Array.from(map.entries());
   }, [items]);
 
-  // Tính menu active trực tiếp từ URL, đồng bộ tức thời
+  // Tính menu active: chọn href DÀI NHẤT khớp pathname.
+  // Bản cũ dùng find() lấy kết quả đầu tiên nên "/appointments" nuốt mất
+  // "/appointments/online" và "/appointments/queue" (đứng trước trong MENU),
+  // khiến nút con đang mở không hiện màu nền.
   const activeHref = useMemo(() => {
-    return (
-      items.find((m) => (m.href === "/" ? pathname === "/" : pathname.startsWith(m.href)))
-        ?.href || null
-    );
+    let best: string | null = null;
+    for (const m of items) {
+      const matched = m.href === "/" ? pathname === "/" : pathname.startsWith(m.href);
+      if (matched && (best === null || m.href.length > best.length)) {
+        best = m.href;
+      }
+    }
+    return best;
   }, [items, pathname]);
-
-  // Tìm section đang chứa trang active để không bao giờ đóng nhầm
-  const activeSection = useMemo(() => {
-    return items.find((m) => m.href === activeHref)?.section || null;
-  }, [items, activeHref]);
 
   // Toggle thu gọn Mini-Sidebar (Desktop)
   const toggleMiniSidebar = () => {
@@ -223,8 +225,9 @@ export function Sidebar({
         {groupedSections.map(([sectionName, sectionItems]) => {
           // Nhóm "Tổng quan" hiển thị đơn giản không cần collapsible header
           const isOverview = sectionName === "Tổng quan";
-          // Nhóm bị thu gọn (ngoại trừ nhóm đang chứa activeHref luôn tự mở)
-          const isSectionCollapsed = !isOverview && Boolean(collapsedSections[sectionName]) && activeSection !== sectionName;
+          // Nhóm bị thu gọn hoàn toàn theo thao tác của user,
+          // kể cả khi nhóm đó đang chứa trang active
+          const isSectionCollapsed = !isOverview && Boolean(collapsedSections[sectionName]);
 
           return (
             <div key={sectionName} className={cn("space-y-1", !isOverview && "pt-2.5")}>
