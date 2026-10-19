@@ -54,7 +54,7 @@ export function NewVisitDialog() {
           <Plus className="mr-1 h-4 w-4" /> Khám bệnh mới
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-w-md sm:max-w-md">
         <DialogHeader>
           <DialogTitle>Chọn bệnh nhân để khám</DialogTitle>
         </DialogHeader>

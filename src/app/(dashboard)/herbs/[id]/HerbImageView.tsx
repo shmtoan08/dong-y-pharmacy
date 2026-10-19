@@ -88,7 +88,7 @@ export function HerbImageView({
         </Link>
       )}
       <Dialog open={lightbox !== null} onOpenChange={(open) => !open && setLightbox(null)}>
-        <DialogContent className="max-w-3xl p-2">
+        <DialogContent className="max-w-3xl p-2 sm:max-w-3xl">
           <DialogTitle className="sr-only">
             {herbName} — ảnh {(lightbox ?? 0) + 1}/{images.length}
           </DialogTitle>

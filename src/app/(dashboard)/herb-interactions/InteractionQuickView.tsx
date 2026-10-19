@@ -41,7 +41,7 @@ export function InteractionQuickView({ row }: { row: InteractionRow }) {
       </Tooltip>
 
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-md sm:max-w-md">
           <DialogHeader>
             <DialogTitle>
               {row.herb_a_name} <span className="text-red-600">⛔</span> {row.herb_b_name}

@@ -125,7 +125,7 @@ export function NewAppointmentButton({ practitioners }: { practitioners: Practit
       </Button>
 
       <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (!o) reset(); }}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-md sm:max-w-md">
           <DialogHeader><DialogTitle>Đặt lịch hẹn mới</DialogTitle></DialogHeader>
           <div className="space-y-3">
             <div className="space-y-1.5">

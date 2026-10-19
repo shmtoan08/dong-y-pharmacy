@@ -105,7 +105,7 @@ export function WalkInButton() {
       </Button>
 
       <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (!o) reset(); }}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-md sm:max-w-md">
           <DialogHeader><DialogTitle>Tiếp đón bệnh nhân vãng lai</DialogTitle></DialogHeader>
           <div className="space-y-3">
             <p className="text-sm text-stone-600">

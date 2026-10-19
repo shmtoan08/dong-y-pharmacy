@@ -32,7 +32,7 @@ export function AppointmentDetailDialog({
       </span>
 
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-md sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Chi tiết lịch hẹn</DialogTitle>
           </DialogHeader>

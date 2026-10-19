@@ -72,7 +72,7 @@ export function ManualTxButton({ type }: { type: "income" | "expense" }) {
       </Button>
 
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-md sm:max-w-md">
           <DialogHeader>
             <DialogTitle>{isIncome ? "Lập phiếu thu" : "Lập phiếu chi"}</DialogTitle>
           </DialogHeader>
