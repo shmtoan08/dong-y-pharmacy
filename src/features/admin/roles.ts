@@ -37,7 +37,7 @@ export async function createRole(
   const cleanCode = code.trim().toLowerCase().replace(/[^a-z0-9_]/g, "");
   if (!cleanCode || cleanCode.length < 2) return { error: "Mã vai trò không hợp lệ." };
   if (!label.trim()) return { error: "Chưa nhập tên vai trò." };
-  if (["admin", "practitioner", "dispenser"].includes(cleanCode)) {
+  if (["admin", "practitioner", "dispenser", "cashier"].includes(cleanCode)) {
     return { error: "Mã vai trò đã tồn tại." };
   }
 

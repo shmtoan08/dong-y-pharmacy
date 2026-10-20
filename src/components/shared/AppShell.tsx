@@ -8,7 +8,7 @@ interface SessionUser {
   id: string;
   email: string;
   full_name: string;
-  role: "admin" | "practitioner" | "dispenser";
+  role: "admin" | "practitioner" | "dispenser" | "cashier";
 }
 
 export function AppShell({

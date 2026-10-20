@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-export const ROLES = ["admin", "practitioner", "dispenser"] as const;
+export const ROLES = ["admin", "practitioner", "dispenser", "cashier"] as const;
 
 // Schema cho Server Action (bảo mật) — không reuse mù quáng với client
 export const createUserSchema = z.object({

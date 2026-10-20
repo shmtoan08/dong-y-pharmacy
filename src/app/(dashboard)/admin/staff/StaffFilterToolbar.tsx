@@ -18,6 +18,7 @@ const ROLE_FILTERS = [
   { value: "admin", label: "Quản trị" },
   { value: "practitioner", label: "Thầy thuốc" },
   { value: "dispenser", label: "Nhân viên bốc thuốc" },
+  { value: "cashier", label: "Thu ngân" },
 ];
 
 const STATUS_FILTERS = [
