@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -32,7 +33,15 @@ export function HerbImageUpload({
   herbId: string;
   initialImages: HerbImage[];
 }) {
+  const router = useRouter();
   const [images, setImages] = useState(initialImages);
+  // Dong bo lai tu server moi khi trang render lai (router.refresh / revalidate):
+  // tranh truong hop action da luu thanh cong nhung UI giu state cu.
+  const [prevInitial, setPrevInitial] = useState(initialImages);
+  if (initialImages !== prevInitial) {
+    setPrevInitial(initialImages);
+    setImages(initialImages);
+  }
   const [selected, setSelected] = useState<File[]>([]);
   const [previews, setPreviews] = useState<string[]>([]);
   const [error, setError] = useState<string | undefined>();
@@ -87,7 +96,10 @@ export function HerbImageUpload({
       } else if (result.data?.images) {
         setImages(result.data.images);
         clearSelected();
+        router.refresh();
       }
+    } catch {
+      setError("Tải ảnh thất bại. Hãy tải lại trang rồi thử lại.");
     } finally {
       setUploading(false);
     }
@@ -102,7 +114,11 @@ export function HerbImageUpload({
         setError(result.error);
       } else if (result.data?.images) {
         setImages(result.data.images);
+        router.refresh();
       }
+      setConfirmDeleteId(null);
+    } catch {
+      setError("Xóa ảnh thất bại. Hãy tải lại trang rồi thử lại.");
       setConfirmDeleteId(null);
     } finally {
       setBusyId(null);
@@ -118,7 +134,10 @@ export function HerbImageUpload({
         setError(result.error);
       } else if (result.data?.images) {
         setImages(result.data.images);
+        router.refresh();
       }
+    } catch {
+      setError("Đặt ảnh đại diện thất bại. Hãy tải lại trang rồi thử lại.");
     } finally {
       setBusyId(null);
     }

@@ -423,6 +423,7 @@ export async function uploadHerbImages(
   });
   const { revalidatePath } = await import("next/cache");
   revalidatePath(`/herbs/${herbId}`);
+  revalidatePath(`/herbs/${herbId}/edit`);
   revalidatePath("/herbs");
   return { ok: true, data: { images: await freshImages(herbId) } };
 }
@@ -454,6 +455,7 @@ export async function deleteHerbImage(
       });
       const { revalidatePath } = await import("next/cache");
       revalidatePath(`/herbs/${herbId}`);
+      revalidatePath(`/herbs/${herbId}/edit`);
       revalidatePath("/herbs");
     }
     return { ok: true, data: { images: await freshImages(herbId) } };
@@ -492,6 +494,7 @@ export async function deleteHerbImage(
   });
   const { revalidatePath } = await import("next/cache");
   revalidatePath(`/herbs/${herbId}`);
+  revalidatePath(`/herbs/${herbId}/edit`);
   revalidatePath("/herbs");
   return { ok: true, data: { images: await freshImages(herbId) } };
 }
@@ -528,6 +531,7 @@ export async function setHerbPrimaryImage(
   });
   const { revalidatePath } = await import("next/cache");
   revalidatePath(`/herbs/${herbId}`);
+  revalidatePath(`/herbs/${herbId}/edit`);
   revalidatePath("/herbs");
   return { ok: true, data: { images: await freshImages(herbId) } };
 }
