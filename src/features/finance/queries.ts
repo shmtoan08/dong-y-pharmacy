@@ -81,7 +81,7 @@ export async function listInvoices(filter?: {
   to?: string;
   method?: string;
 }): Promise<InvoiceRow[]> {
-  await requireRole("admin", "practitioner", "dispenser");
+  await requireRole("admin", "practitioner", "dispenser", "cashier");
   const conds: string[] = [];
   const params: unknown[] = [];
   if (filter?.q) {
@@ -130,7 +130,7 @@ export async function listInvoices(filter?: {
  * Chi tiết một hóa đơn kèm các dòng tiền và thanh toán
  */
 export async function getInvoice(id: string): Promise<InvoiceDetail | null> {
-  await requireRole("admin", "practitioner", "dispenser");
+  await requireRole("admin", "practitioner", "dispenser", "cashier");
   const list = await listInvoices();
   const inv = list.find((x) => x.id === id);
   if (!inv) return null;
@@ -151,7 +151,7 @@ export async function getInvoice(id: string): Promise<InvoiceDetail | null> {
  * KPI tổng quan hóa đơn
  */
 export async function getInvoiceKpi(): Promise<InvoiceKpi> {
-  await requireRole("admin", "practitioner", "dispenser");
+  await requireRole("admin", "practitioner", "dispenser", "cashier");
   const { rows } = await db.query(
     `SELECT
        COALESCE(SUM(i.total), 0) AS total_revenue,

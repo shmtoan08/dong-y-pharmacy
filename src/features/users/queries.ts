@@ -44,7 +44,7 @@ export async function listStaff(filters: StaffFilters = {}): Promise<StaffListRe
   await requireRole("admin");
 
   const q = (filters.q ?? "").trim();
-  const roleFilter = ["admin", "practitioner", "dispenser"].includes(filters.role ?? "")
+  const roleFilter = ["admin", "practitioner", "dispenser", "cashier"].includes(filters.role ?? "")
     ? filters.role!
     : "all";
   const statusFilter = ["active", "locked"].includes(filters.status ?? "")

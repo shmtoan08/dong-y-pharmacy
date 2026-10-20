@@ -16,12 +16,14 @@ const ROLE_LABEL: Record<string, string> = {
   admin: "Quản trị viên",
   practitioner: "Thầy thuốc",
   dispenser: "Nhân viên bốc thuốc",
+  cashier: "Thu ngân",
 };
 
 const ROLE_BADGE_STYLE: Record<string, string> = {
   admin: "bg-emerald-100 text-emerald-800 hover:bg-emerald-100",
   practitioner: "bg-amber-100 text-amber-800 hover:bg-amber-100",
   dispenser: "bg-stone-200 text-stone-700 hover:bg-stone-200",
+  cashier: "bg-sky-100 text-sky-800 hover:bg-sky-100",
 };
 
 export function Header({

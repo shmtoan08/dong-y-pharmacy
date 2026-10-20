@@ -29,7 +29,7 @@ export async function listInvoices(filter?: {
   to?: string;
   method?: string;
 }): Promise<InvoiceRow[]> {
-  await requireRole("admin", "practitioner", "dispenser");
+  await requireRole("admin", "practitioner", "dispenser", "cashier");
   const conds: string[] = [];
   const params: unknown[] = [];
   if (filter?.q) {
@@ -76,7 +76,7 @@ export interface InvoiceDetail extends InvoiceRow {
 }
 
 export async function getInvoice(id: string): Promise<InvoiceDetail | null> {
-  await requireRole("admin", "practitioner", "dispenser");
+  await requireRole("admin", "practitioner", "dispenser", "cashier");
   const list = await listInvoices();
   const inv = list.find((x) => x.id === id);
   if (!inv) return null;
@@ -102,7 +102,7 @@ export async function createInvoice(
   discount: number,
   priceOverrides?: Record<string, number>,
 ): Promise<{ id?: string; error?: string }> {
-  const user = await requireRole("admin", "practitioner");
+  const user = await requireRole("admin", "practitioner", "cashier");
   if (discount < 0) return { error: "Chiết khấu không được âm." };
 
   try {
@@ -199,7 +199,7 @@ export async function recordPayment(
   method: "cash" | "transfer",
   note?: string,
 ): Promise<{ error?: string }> {
-  const user = await requireRole("admin", "practitioner");
+  const user = await requireRole("admin", "practitioner", "cashier");
   if (amount <= 0) return { error: "Số tiền phải dương." };
 
   try {
@@ -360,7 +360,7 @@ export interface InvoiceKpi {
 }
 
 export async function getInvoiceKpi(): Promise<InvoiceKpi> {
-  await requireRole("admin", "practitioner", "dispenser");
+  await requireRole("admin", "practitioner", "dispenser", "cashier");
   const { rows } = await db.query(
     `SELECT
        COALESCE(SUM(i.total), 0) AS total_revenue,

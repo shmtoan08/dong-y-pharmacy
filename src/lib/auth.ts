@@ -8,7 +8,7 @@ export const SESSION_COOKIE = "dongy_session";
 // 8 tiếng theo tài liệu yêu cầu
 export const SESSION_TTL_MS = 8 * 60 * 60 * 1000;
 
-export type Role = "admin" | "practitioner" | "dispenser";
+export type Role = "admin" | "practitioner" | "dispenser" | "cashier";
 
 export interface SessionUser {
   id: string;

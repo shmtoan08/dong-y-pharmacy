@@ -17,12 +17,14 @@ const ROLE_LABEL: Record<string, string> = {
   admin: "Quản trị",
   practitioner: "Thầy thuốc",
   dispenser: "Nhân viên bốc thuốc",
+  cashier: "Thu ngân",
 };
 
 const ROLE_STYLE: Record<string, string> = {
   admin: "bg-orange-100 text-orange-700 hover:bg-orange-100",
   practitioner: "bg-blue-100 text-blue-700 hover:bg-blue-100",
   dispenser: "bg-emerald-100 text-emerald-700 hover:bg-emerald-100",
+  cashier: "bg-violet-100 text-violet-700 hover:bg-violet-100",
 };
 
 function avatarColor(name: string): string {
@@ -52,7 +54,7 @@ export default async function StaffListPage({
   const me = await requireRole("admin");
   const sp = await searchParams;
   const q = (sp.q ?? "").trim();
-  const roleFilter = ["admin", "practitioner", "dispenser"].includes(sp.role ?? "")
+  const roleFilter = ["admin", "practitioner", "dispenser", "cashier"].includes(sp.role ?? "")
     ? sp.role!
     : "all";
   const statusFilter = ["active", "locked"].includes(sp.status ?? "")

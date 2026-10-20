@@ -68,6 +68,7 @@ export default function NewStaffPage() {
                   <SelectItem value="admin">Quản trị</SelectItem>
                   <SelectItem value="practitioner">Thầy thuốc</SelectItem>
                   <SelectItem value="dispenser">Nhân viên bốc thuốc</SelectItem>
+                  <SelectItem value="cashier">Thu ngân</SelectItem>
                 </SelectContent>
               </Select>
             </div>

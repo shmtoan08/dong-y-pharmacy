@@ -49,4 +49,7 @@ export const DEFAULT_PERMISSIONS: Record<string, PermissionKey[]> = {
     "inventory.view", "inventory.receive",
     "finance.invoices.view", "finance.invoices.collect",
   ],
+  cashier: [
+    "finance.invoices.view", "finance.invoices.create", "finance.invoices.collect",
+  ],
 };
